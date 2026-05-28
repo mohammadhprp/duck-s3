@@ -1,0 +1,517 @@
+# S3 GUI Client 
+
+> Roadmap (MVP → Production)
+
+# 1. Project Foundation
+
+## Goals
+
+* Native-feeling macOS app
+* Modern UI
+* S3-compatible support
+* Fast browsing
+* Simple UX
+* Internal-tool quality first
+
+---
+
+## Tech Stack
+
+### Desktop
+
+* Tauri v2
+
+### Frontend
+
+* React
+* TypeScript
+* Vite
+
+### UI
+
+* TailwindCSS
+* shadcn/ui
+* Lucide icons
+
+### Data
+
+* TanStack Query
+* Zustand
+
+### S3
+
+* AWS SDK v3
+
+### Optional
+
+* react-dropzone
+* react-virtualized / tanstack virtual
+
+---
+
+# 2. Phase 0 — Setup
+
+## TODO
+
+* [ ] Create Tauri app
+* [ ] Configure React + TypeScript
+* [ ] Install Tailwind
+* [ ] Setup shadcn/ui
+* [ ] Setup ESLint + Prettier
+* [ ] Setup folder structure
+* [ ] Configure dark mode
+* [ ] Create app layout shell
+
+---
+
+## Folder Structure
+
+```text
+src/
+├── components/
+├── features/
+│   ├── auth/
+│   ├── buckets/
+│   ├── explorer/
+│   ├── uploads/
+│   └── settings/
+├── hooks/
+├── services/
+│   └── s3/
+├── stores/
+├── types/
+└── pages/
+```
+
+---
+
+# 3. Phase 1 — Connection System
+
+## Goal
+
+User can connect to S3-compatible storage.
+
+---
+
+## MVP Features
+
+* [ ] Add connection form
+* [ ] Save credentials locally
+* [ ] Test connection
+* [ ] Connect/disconnect
+* [ ] Multiple profiles
+
+---
+
+## Fields
+
+```text
+Connection Name
+Endpoint
+Region
+Access Key
+Secret Key
+Force Path Style
+Use SSL
+```
+
+---
+
+## Supported Providers
+
+Start with:
+
+* AWS S3
+* MinIO
+* Cloudflare R2
+
+Later:
+
+* Backblaze
+* Wasabi
+* DigitalOcean Spaces
+
+---
+
+## Technical Tasks
+
+* [ ] Build S3Client factory
+* [ ] Handle credential validation
+* [ ] Handle endpoint normalization
+* [ ] Add encrypted local storage
+
+---
+
+# 4. Phase 2 — Bucket Browser
+
+## Goal
+
+Display buckets.
+
+---
+
+## Features
+
+* [ ] List buckets
+* [ ] Bucket sidebar
+* [ ] Refresh buckets
+* [ ] Search buckets
+* [ ] Create bucket
+* [ ] Delete bucket
+
+---
+
+## UI
+
+```text
+Sidebar
+ ├── Bucket A
+ ├── Bucket B
+ └── Bucket C
+```
+
+---
+
+## Technical Tasks
+
+* [ ] listBuckets()
+* [ ] createBucket()
+* [ ] deleteBucket()
+
+---
+
+# 5. Phase 3 — Object Explorer (CORE MVP)
+
+## Goal
+
+Browse files like Finder.
+
+---
+
+## Features
+
+* [ ] List objects
+* [ ] Folder navigation
+* [ ] Breadcrumbs
+* [ ] File table
+* [ ] Search current folder
+* [ ] Sort files
+* [ ] Refresh current path
+
+---
+
+## Table Columns
+
+* Name
+* Size
+* Last Modified
+* Storage Class
+
+---
+
+## Technical Tasks
+
+* [ ] listObjectsV2()
+* [ ] Prefix handling
+* [ ] Delimiter handling
+* [ ] Pagination
+* [ ] Folder abstraction
+
+---
+
+## Important
+
+S3 folders are fake.
+
+You must convert:
+
+```text
+photos/2026/cat.jpg
+```
+
+Into:
+
+```text
+photos/
+  2026/
+    cat.jpg
+```
+
+---
+
+# 6. Phase 4 — Upload System
+
+## Goal
+
+Upload files smoothly.
+
+---
+
+## MVP Features
+
+* [ ] Drag & drop
+* [ ] Upload file
+* [ ] Upload folder
+* [ ] Upload progress
+* [ ] Cancel upload
+* [ ] Retry upload
+
+---
+
+## Technical Tasks
+
+* [ ] Multipart upload
+* [ ] Progress tracking
+* [ ] Upload queue
+* [ ] Concurrent uploads
+
+---
+
+## Important
+
+This becomes the hardest part quickly.
+
+Keep MVP simple:
+
+* no resumable uploads yet
+* no background daemon yet
+
+---
+
+# 7. Phase 5 — Download System
+
+## Features
+
+* [ ] Download file
+* [ ] Download folder
+* [ ] Progress tracking
+* [ ] Open in Finder
+
+---
+
+## Technical Tasks
+
+* [ ] Stream downloads
+* [ ] Handle large files
+* [ ] Save dialog integration
+
+---
+
+# 8. Phase 6 — File Actions
+
+## Features
+
+* [ ] Delete object
+* [ ] Rename object
+* [ ] Move object
+* [ ] Copy object
+* [ ] Create folder
+* [ ] Bulk select
+
+---
+
+## Technical Tasks
+
+Remember:
+
+* rename = copy + delete
+* move = copy + delete
+
+S3 has no real rename.
+
+---
+
+# 9. Phase 7 — File Preview
+
+## Goal
+
+Preview common files.
+
+---
+
+## MVP Preview Types
+
+* [ ] Images
+* [ ] JSON
+* [ ] Text
+* [ ] PDF
+* [ ] Markdown
+
+---
+
+## Technical Tasks
+
+* [ ] Signed URLs
+* [ ] Temporary downloads
+* [ ] Preview modal
+
+---
+
+# 10. Phase 8 — Polishing
+
+## UX Features
+
+* [ ] Keyboard shortcuts
+* [ ] Command palette
+* [ ] Context menus
+* [ ] Right-click actions
+* [ ] Double-click navigation
+* [ ] Multi-tab support
+
+---
+
+## Performance
+
+* [ ] Virtualized lists
+* [ ] Infinite scrolling
+* [ ] Caching
+* [ ] Debounced search
+
+---
+
+## Error Handling
+
+* [ ] Network errors
+* [ ] Expired credentials
+* [ ] Permission errors
+* [ ] Upload failures
+
+---
+
+# 11. Phase 9 — macOS Native Feel
+
+
+## Features
+
+* [ ] Native menus
+* [ ] Native notifications
+* [ ] Spotlight-like search
+* [ ] Finder integration
+* [ ] Drag from Finder
+* [ ] Native file dialogs
+
+---
+
+# 12. Phase 10 — Security
+
+## MUST HAVE
+
+* [ ] Encrypt credentials
+* [ ] Never log secrets
+* [ ] Secure local storage
+* [ ] Validate endpoints
+
+---
+
+## Optional
+
+* [ ] Keychain integration
+* [ ] Session locking
+* [ ] Biometric unlock
+
+---
+
+# 13. Phase 11 — Advanced Features
+
+## Optional Future
+
+* [ ] Presigned URLs
+* [ ] Bucket policies
+* [ ] IAM explorer
+* [ ] Object tagging
+* [ ] Lifecycle rules
+* [ ] Versioning
+* [ ] CDN integration
+* [ ] Object diff viewer
+* [ ] Image optimization
+* [ ] SQL querying
+* [ ] Local sync
+
+---
+
+# 14. Recommended MVP Scope
+
+## BUILD THIS FIRST
+
+### Authentication
+
+* [ ] Add connection
+* [ ] Save connection
+
+### Explorer
+
+* [ ] Bucket list
+* [ ] Browse files
+* [ ] Breadcrumbs
+
+### File Operations
+
+* [ ] Upload
+* [ ] Download
+* [ ] Delete
+
+### UX
+
+* [ ] Drag/drop
+* [ ] Progress bars
+* [ ] Dark mode
+
+---
+
+# 15. DO NOT BUILD YET
+
+Avoid:
+
+* IAM management
+* ACL editor
+* Lifecycle editor
+* Versioning
+* Resumable sync
+* Background daemon
+* Terminal integration
+* Real-time sync
+* Collaboration
+
+These kill momentum.
+
+---
+
+# 16. Suggested Timeline
+
+## Weekend MVP
+
+* Setup
+* Connection system
+* Bucket explorer
+* Basic upload/download
+
+---
+
+## Week 1
+
+* Better UI
+* Progress tracking
+* Drag/drop
+* File actions
+
+---
+
+## Week 2
+
+* Preview system
+* Performance improvements
+* Better error handling
+
+---
+
+# 17. Final MVP Definition
+
+If users can:
+
+* connect to S3
+* browse buckets
+* upload files
+* download files
+* delete files
+
+
