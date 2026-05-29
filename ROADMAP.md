@@ -95,11 +95,11 @@ User can connect to S3-compatible storage.
 
 ## MVP Features
 
-* [ ] Add connection form
-* [ ] Save credentials locally
-* [ ] Test connection
-* [ ] Connect/disconnect
-* [ ] Multiple profiles
+* [x] Add connection form
+* [x] Save credentials locally
+* [x] Test connection
+* [x] Connect/disconnect
+* [x] Multiple profiles
 
 ---
 
@@ -135,10 +135,10 @@ Later:
 
 ## Technical Tasks
 
-* [ ] Build S3Client factory
-* [ ] Handle credential validation
-* [ ] Handle endpoint normalization
-* [ ] Add encrypted local storage
+* [x] Build S3Client factory
+* [x] Handle credential validation
+* [x] Handle endpoint normalization
+* [x] Add encrypted local storage
 
 ---
 
