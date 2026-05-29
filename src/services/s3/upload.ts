@@ -3,7 +3,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { ConnectionProfileInput } from "@/types/connection";
 import { normalizeEndpoint } from "@/services/s3/validation";
 
-const MULTIPART_CHUNK_SIZE = 8 * 1024 * 1024;
+const MULTIPART_CHUNK_SIZE = 1 * 1024 * 1024;
 
 interface TauriS3Profile {
   endpoint: string | null;

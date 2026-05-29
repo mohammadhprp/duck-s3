@@ -21,7 +21,7 @@ interface UploadState {
   cancelUpload: (jobId: string) => void;
   retryUpload: (profile: ConnectionProfile, jobId: string) => void;
   clearFinished: () => void;
-  runQueue: (profile: ConnectionProfile) => Promise<void>;
+  runQueue: () => Promise<void>;
 }
 
 export const useUploadStore = create<UploadState>((set, get) => ({
@@ -33,6 +33,19 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
       return {
         id: crypto.randomUUID(),
+        profile: {
+          id: profile.id,
+          name: profile.name,
+          provider: profile.provider,
+          endpoint: profile.endpoint,
+          region: profile.region,
+          credentials: {
+            accessKeyId: profile.credentials.accessKeyId,
+            secretAccessKey: profile.credentials.secretAccessKey,
+          },
+          forcePathStyle: profile.forcePathStyle,
+          useSsl: profile.useSsl,
+        },
         file: selection.file,
         bucketName,
         key,
@@ -53,7 +66,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       lastMessage: `Queued ${createdJobs.length} upload${createdJobs.length === 1 ? "" : "s"}.`,
     }));
 
-    void get().runQueue(profile);
+    void get().runQueue();
   },
   cancelUpload(jobId) {
     const controller = uploadControllers.get(jobId);
@@ -79,6 +92,19 @@ export const useUploadStore = create<UploadState>((set, get) => ({
         job.id === jobId
           ? {
               ...job,
+              profile: {
+                id: profile.id,
+                name: profile.name,
+                provider: profile.provider,
+                endpoint: profile.endpoint,
+                region: profile.region,
+                credentials: {
+                  accessKeyId: profile.credentials.accessKeyId,
+                  secretAccessKey: profile.credentials.secretAccessKey,
+                },
+                forcePathStyle: profile.forcePathStyle,
+                useSsl: profile.useSsl,
+              },
               status: "queued",
               progress: 0,
               uploadedBytes: 0,
@@ -92,7 +118,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       lastMessage: "Upload queued for retry.",
     }));
 
-    void get().runQueue(profile);
+    void get().runQueue();
   },
   clearFinished() {
     set((state) => ({
@@ -100,7 +126,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       lastMessage: "Cleared finished uploads.",
     }));
   },
-  async runQueue(profile: ConnectionProfile) {
+  async runQueue() {
     const state = get();
     const availableSlots = MAX_CONCURRENT_UPLOADS - state.activeCount;
 
@@ -124,24 +150,18 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       lastMessage: `Uploading ${nextJobs.length} file${nextJobs.length === 1 ? "" : "s"}...`,
     }));
 
-    await Promise.all(nextJobs.map((job) => uploadJob(profile, job.id)));
-    void get().runQueue(profile);
+    await Promise.all(nextJobs.map((job) => uploadJob(job)));
+    void get().runQueue();
   },
 }));
 
-async function uploadJob(profile: ConnectionProfile, jobId: string) {
+async function uploadJob(job: UploadJob) {
   const controller = new AbortController();
-  uploadControllers.set(jobId, controller);
+  uploadControllers.set(job.id, controller);
 
   try {
-    const job = useUploadStore.getState().jobs.find((candidate) => candidate.id === jobId);
-
-    if (!job) {
-      return;
-    }
-
     await uploadFileMultipart({
-      profile,
+      profile: job.profile,
       bucketName: job.bucketName,
       key: job.key,
       file: job.file,
@@ -149,14 +169,14 @@ async function uploadJob(profile: ConnectionProfile, jobId: string) {
       onUploadStarted(uploadId) {
         useUploadStore.setState((state) => ({
           jobs: state.jobs.map((candidate) =>
-            candidate.id === jobId ? { ...candidate, uploadId } : candidate,
+            candidate.id === job.id ? { ...candidate, uploadId } : candidate,
           ),
         }));
       },
       onProgress(uploadedBytes, totalBytes) {
         useUploadStore.setState((state) => ({
           jobs: state.jobs.map((candidate) =>
-            candidate.id === jobId
+            candidate.id === job.id
               ? {
                   ...candidate,
                   uploadedBytes,
@@ -171,7 +191,7 @@ async function uploadJob(profile: ConnectionProfile, jobId: string) {
 
     useUploadStore.setState((state) => ({
       jobs: state.jobs.map((candidate) =>
-        candidate.id === jobId
+        candidate.id === job.id
           ? {
               ...candidate,
               status: "completed",
@@ -186,7 +206,7 @@ async function uploadJob(profile: ConnectionProfile, jobId: string) {
   } catch (error) {
     useUploadStore.setState((state) => ({
       jobs: state.jobs.map((candidate) =>
-        candidate.id === jobId
+        candidate.id === job.id
           ? {
               ...candidate,
               status: isUploadAbortError(error) ? "canceled" : "failed",
@@ -198,7 +218,7 @@ async function uploadJob(profile: ConnectionProfile, jobId: string) {
       lastMessage: isUploadAbortError(error) ? "Upload canceled." : "Upload failed.",
     }));
   } finally {
-    uploadControllers.delete(jobId);
+    uploadControllers.delete(job.id);
     useUploadStore.setState((state) => ({ activeCount: Math.max(0, state.activeCount - 1) }));
   }
 }
