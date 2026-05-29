@@ -1,14 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import {
-  CheckCircle2,
-  Cloud,
-  KeyRound,
-  Lock,
-  Plug,
-  PlugZap,
-  Server,
-  Trash2,
-} from "lucide-react";
+import { CheckCircle2, Cloud, KeyRound, Lock, Plug, PlugZap, Server, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useConnectionStore } from "@/stores/connectionStore";
