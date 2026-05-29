@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ConnectionSystem } from "@/features/auth/ConnectionSystem";
 import { BucketBrowser } from "@/features/buckets/BucketBrowser";
 import { ObjectExplorer } from "@/features/explorer/ObjectExplorer";
+import { UploadPanel } from "@/features/uploads/UploadPanel";
 
 type NavigationPage = "connections" | "buckets" | "explorer" | "uploads" | "settings";
 
@@ -20,7 +21,7 @@ const pageMetadata: Record<NavigationPage, { eyebrow: string; title: string }> =
   connections: { eyebrow: "Profiles", title: "Connection profiles" },
   buckets: { eyebrow: "Explore", title: "Bucket browser" },
   explorer: { eyebrow: "Browse", title: "Object explorer" },
-  uploads: { eyebrow: "Coming soon", title: "Upload queue" },
+  uploads: { eyebrow: "Transfer", title: "Upload queue" },
   settings: { eyebrow: "Coming soon", title: "Settings" },
 };
 
@@ -72,15 +73,16 @@ function App() {
           {activePage === "connections" ? <ConnectionSystem /> : null}
           {activePage === "buckets" ? <BucketBrowser /> : null}
           {activePage === "explorer" ? <ObjectExplorer /> : null}
-          {activePage !== "connections" && activePage !== "buckets" && activePage !== "explorer" ? (
+          {activePage === "uploads" ? <UploadPanel /> : null}
+          {activePage === "settings" ? (
             <div className="flex flex-1 items-center justify-center p-6">
               <section className="max-w-lg rounded-xl border border-border bg-card p-8 text-center shadow-sm">
                 <h2 className="text-2xl font-semibold tracking-tight">
                   {activePageMetadata.title}
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  This section is planned for a later roadmap phase. Phase 2 focuses on the bucket
-                  browser workflow.
+                  This section is planned for a later roadmap phase. Phase 4 now provides the upload
+                  queue workflow.
                 </p>
               </section>
             </div>

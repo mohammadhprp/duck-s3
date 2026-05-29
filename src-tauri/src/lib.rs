@@ -9,6 +9,10 @@ pub fn run() {
             s3::s3_create_bucket,
             s3::s3_delete_bucket,
             s3::s3_list_objects,
+            s3::s3_create_multipart_upload,
+            s3::s3_upload_part,
+            s3::s3_complete_multipart_upload,
+            s3::s3_abort_multipart_upload,
             s3::s3_test_connection,
         ])
         .run(tauri::generate_context!())
