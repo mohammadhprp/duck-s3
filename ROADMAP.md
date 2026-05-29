@@ -152,12 +152,12 @@ Display buckets.
 
 ## Features
 
-* [ ] List buckets
-* [ ] Bucket sidebar
-* [ ] Refresh buckets
-* [ ] Search buckets
-* [ ] Create bucket
-* [ ] Delete bucket
+* [x] List buckets
+* [x] Bucket sidebar
+* [x] Refresh buckets
+* [x] Search buckets
+* [x] Create bucket
+* [x] Delete bucket
 
 ---
 
@@ -174,9 +174,9 @@ Sidebar
 
 ## Technical Tasks
 
-* [ ] listBuckets()
-* [ ] createBucket()
-* [ ] deleteBucket()
+* [x] listBuckets()
+* [x] createBucket()
+* [x] deleteBucket()
 
 ---
 
