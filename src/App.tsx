@@ -1,6 +1,7 @@
 import { Database, FolderOpen, HardDriveUpload, Settings, ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { ConnectionSystem } from "@/features/auth/ConnectionSystem";
 
 const navigationItems = [
   { label: "Connections", icon: ShieldCheck, active: true },
@@ -40,37 +41,13 @@ function App() {
         <section className="flex min-w-0 flex-col">
           <header className="flex h-16 items-center justify-between border-b border-border px-6">
             <div>
-              <p className="text-sm text-muted-foreground">Phase 0</p>
-              <h2 className="text-xl font-semibold tracking-tight">Application Shell</h2>
+              <p className="text-sm text-muted-foreground">Phase 1</p>
+              <h2 className="text-xl font-semibold tracking-tight">Connection System</h2>
             </div>
             <Button>New connection</Button>
           </header>
 
-          <div className="grid flex-1 grid-cols-[1fr_320px] gap-6 p-6">
-            <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
-              <p className="mb-2 text-sm font-medium text-primary">Ready for Phase 1</p>
-              <h3 className="mb-3 text-2xl font-semibold tracking-tight">
-                Connect to your S3 storage
-              </h3>
-              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                The foundation is in place: Tauri, React, TypeScript, Tailwind, shadcn/ui
-                primitives, dark mode, linting, formatting, and the feature-first folder structure.
-              </p>
-            </section>
-
-            <aside className="rounded-xl border border-border bg-card p-5 shadow-sm">
-              <h3 className="mb-4 font-semibold">MVP workspace</h3>
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <p>
-                  Connections, bucket browsing, object explorer, uploads, and settings each have a
-                  home.
-                </p>
-                <p className="rounded-lg bg-muted p-3 text-muted-foreground">
-                  Next: build the connection form and S3 client factory.
-                </p>
-              </div>
-            </aside>
-          </div>
+          <ConnectionSystem />
         </section>
       </div>
     </main>
