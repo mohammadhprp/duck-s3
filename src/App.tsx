@@ -4,6 +4,7 @@ import { Database, FolderOpen, HardDriveUpload, Settings, ShieldCheck } from "lu
 import { Button } from "@/components/ui/button";
 import { ConnectionSystem } from "@/features/auth/ConnectionSystem";
 import { BucketBrowser } from "@/features/buckets/BucketBrowser";
+import { ObjectExplorer } from "@/features/explorer/ObjectExplorer";
 
 type NavigationPage = "connections" | "buckets" | "explorer" | "uploads" | "settings";
 
@@ -18,7 +19,7 @@ const navigationItems: Array<{ label: string; icon: typeof ShieldCheck; page: Na
 const pageMetadata: Record<NavigationPage, { eyebrow: string; title: string }> = {
   connections: { eyebrow: "Profiles", title: "Connection profiles" },
   buckets: { eyebrow: "Explore", title: "Bucket browser" },
-  explorer: { eyebrow: "Coming soon", title: "Object explorer" },
+  explorer: { eyebrow: "Browse", title: "Object explorer" },
   uploads: { eyebrow: "Coming soon", title: "Upload queue" },
   settings: { eyebrow: "Coming soon", title: "Settings" },
 };
@@ -70,7 +71,8 @@ function App() {
 
           {activePage === "connections" ? <ConnectionSystem /> : null}
           {activePage === "buckets" ? <BucketBrowser /> : null}
-          {activePage !== "connections" && activePage !== "buckets" ? (
+          {activePage === "explorer" ? <ObjectExplorer /> : null}
+          {activePage !== "connections" && activePage !== "buckets" && activePage !== "explorer" ? (
             <div className="flex flex-1 items-center justify-center p-6">
               <section className="max-w-lg rounded-xl border border-border bg-card p-8 text-center shadow-sm">
                 <h2 className="text-2xl font-semibold tracking-tight">

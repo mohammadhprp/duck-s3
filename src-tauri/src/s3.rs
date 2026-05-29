@@ -1,10 +1,11 @@
 use aws_credential_types::Credentials;
 use aws_sdk_s3::config::Builder as S3ConfigBuilder;
 use aws_sdk_s3::{
-    Client as S3Client,
     config::{BehaviorVersion, Region},
+    Client as S3Client,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Deserialize)]
 pub struct S3Profile {
@@ -20,6 +21,32 @@ pub struct S3Profile {
 pub struct S3Bucket {
     pub name: String,
     pub creation_date: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct S3ObjectFolder {
+    pub name: String,
+    pub prefix: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct S3ObjectFile {
+    pub key: String,
+    pub name: String,
+    pub size: i64,
+    pub last_modified: Option<String>,
+    pub storage_class: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct S3ObjectExplorerPage {
+    pub bucket_name: String,
+    pub prefix: String,
+    pub folders: Vec<S3ObjectFolder>,
+    pub files: Vec<S3ObjectFile>,
+    pub object_count: usize,
+    pub folder_count: usize,
+    pub page_count: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -99,9 +126,9 @@ pub async fn s3_create_bucket(profile: S3Profile, bucket_name: String) -> Result
     if profile.region != "us-east-1" {
         req = req.create_bucket_configuration(
             aws_sdk_s3::types::CreateBucketConfiguration::builder()
-                .location_constraint(
-                    aws_sdk_s3::types::BucketLocationConstraint::from(profile.region.as_str()),
-                )
+                .location_constraint(aws_sdk_s3::types::BucketLocationConstraint::from(
+                    profile.region.as_str(),
+                ))
                 .build(),
         );
     }
@@ -121,6 +148,144 @@ pub async fn s3_delete_bucket(profile: S3Profile, bucket_name: String) -> Result
         .await
         .map_err(|e| format!("S3 error: {e:?}"))?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn s3_list_objects(
+    profile: S3Profile,
+    bucket_name: String,
+    prefix: String,
+) -> Result<S3ObjectExplorerPage, String> {
+    let client = build_s3_client(&profile);
+    let normalized_prefix = normalize_prefix(&prefix);
+    let mut continuation_token: Option<String> = None;
+    let mut folders_by_prefix: BTreeMap<String, S3ObjectFolder> = BTreeMap::new();
+    let mut files: Vec<S3ObjectFile> = Vec::new();
+    let mut page_count = 0;
+
+    loop {
+        let mut request = client
+            .list_objects_v2()
+            .bucket(&bucket_name)
+            .delimiter("/")
+            .prefix(&normalized_prefix)
+            .max_keys(1000);
+
+        if let Some(token) = continuation_token.as_deref() {
+            request = request.continuation_token(token);
+        }
+
+        let output = request
+            .send()
+            .await
+            .map_err(|e| format!("S3 error: {e:?}"))?;
+
+        page_count += 1;
+
+        for common_prefix in output.common_prefixes() {
+            if let Some(folder_prefix) = common_prefix.prefix() {
+                if folder_prefix == normalized_prefix {
+                    continue;
+                }
+
+                let folder_name = folder_name_from_prefix(folder_prefix, &normalized_prefix);
+
+                if !folder_name.is_empty() {
+                    folders_by_prefix.insert(
+                        folder_prefix.to_string(),
+                        S3ObjectFolder {
+                            name: folder_name,
+                            prefix: folder_prefix.to_string(),
+                        },
+                    );
+                }
+            }
+        }
+
+        for object in output.contents() {
+            let Some(key) = object.key() else {
+                continue;
+            };
+
+            if key == normalized_prefix || key.ends_with('/') {
+                continue;
+            }
+
+            let file_name = object_name_from_key(key, &normalized_prefix);
+
+            if file_name.is_empty() || file_name.contains('/') {
+                continue;
+            }
+
+            files.push(S3ObjectFile {
+                key: key.to_string(),
+                name: file_name,
+                size: object.size().unwrap_or_default(),
+                last_modified: object.last_modified().map(|d| d.to_string()),
+                storage_class: object
+                    .storage_class()
+                    .map(|storage_class| storage_class.as_str().to_string()),
+            });
+        }
+
+        if output.is_truncated().unwrap_or(false) {
+            continuation_token = output.next_continuation_token().map(ToString::to_string);
+
+            if continuation_token.is_none() {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+
+    let mut folders: Vec<S3ObjectFolder> = folders_by_prefix.into_values().collect();
+    folders.sort_by(|a, b| a.name.cmp(&b.name));
+    files.sort_by(|a, b| a.name.cmp(&b.name));
+
+    Ok(S3ObjectExplorerPage {
+        bucket_name,
+        prefix: normalized_prefix,
+        object_count: files.len(),
+        folder_count: folders.len(),
+        page_count,
+        folders,
+        files,
+    })
+}
+
+fn normalize_prefix(prefix: &str) -> String {
+    let trimmed_prefix = prefix.trim().trim_start_matches('/');
+
+    if trimmed_prefix.is_empty() {
+        return String::new();
+    }
+
+    if trimmed_prefix.ends_with('/') {
+        trimmed_prefix.to_string()
+    } else {
+        format!("{trimmed_prefix}/")
+    }
+}
+
+fn folder_name_from_prefix(folder_prefix: &str, current_prefix: &str) -> String {
+    folder_prefix
+        .strip_prefix(current_prefix)
+        .unwrap_or(folder_prefix)
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .unwrap_or("")
+        .to_string()
+}
+
+fn object_name_from_key(key: &str, current_prefix: &str) -> String {
+    key.strip_prefix(current_prefix)
+        .unwrap_or(key)
+        .rsplit('/')
+        .next()
+        .unwrap_or("")
+        .to_string()
 }
 
 #[tauri::command]
