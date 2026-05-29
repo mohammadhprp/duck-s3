@@ -3,7 +3,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { ConnectionProfileInput } from "@/types/connection";
 import { normalizeEndpoint } from "@/services/s3/validation";
 
-const MULTIPART_CHUNK_SIZE = 1 * 1024 * 1024;
+const MULTIPART_CHUNK_SIZE = 8 * 1024 * 1024;
 
 interface TauriS3Profile {
   endpoint: string | null;
@@ -77,10 +77,6 @@ export async function uploadFileMultipart({
     const partCount = Math.max(1, Math.ceil(file.size / MULTIPART_CHUNK_SIZE));
 
     for (let partIndex = 0; partIndex < partCount; partIndex += 1) {
-      if (signal?.aborted) {
-        throw new DOMException("Upload canceled.", "AbortError");
-      }
-
       const start = partIndex * MULTIPART_CHUNK_SIZE;
       const end = Math.min(file.size, start + MULTIPART_CHUNK_SIZE);
       const body = new Uint8Array(await file.slice(start, end).arrayBuffer());
@@ -90,7 +86,7 @@ export async function uploadFileMultipart({
         key,
         uploadId,
         partNumber: partIndex + 1,
-        body: Array.from(body),
+        body,
       });
 
       uploadedParts.push(part);
