@@ -249,21 +249,21 @@ Upload files smoothly.
 
 ## MVP Features
 
-* [ ] Drag & drop
-* [ ] Upload file
-* [ ] Upload folder
-* [ ] Upload progress
-* [ ] Cancel upload
-* [ ] Retry upload
+* [x] Drag & drop
+* [x] Upload file
+* [x] Upload folder
+* [x] Upload progress
+* [x] Cancel upload
+* [x] Retry upload
 
 ---
 
 ## Technical Tasks
 
-* [ ] Multipart upload
-* [ ] Progress tracking
-* [ ] Upload queue
-* [ ] Concurrent uploads
+* [x] Multipart upload
+* [x] Progress tracking
+* [x] Upload queue
+* [x] Concurrent uploads
 
 ---
 

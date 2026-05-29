@@ -2,6 +2,8 @@ use aws_credential_types::Credentials;
 use aws_sdk_s3::config::Builder as S3ConfigBuilder;
 use aws_sdk_s3::{
     config::{BehaviorVersion, Region},
+    primitives::ByteStream,
+    types::{CompletedMultipartUpload, CompletedPart},
     Client as S3Client,
 };
 use serde::{Deserialize, Serialize};
@@ -48,6 +50,18 @@ pub struct S3ObjectExplorerPage {
     pub folder_count: usize,
     pub page_count: usize,
     pub continuation_token: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MultipartUploadPart {
+    pub part_number: i32,
+    pub e_tag: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MultipartUploadPartResult {
+    pub part_number: i32,
+    pub e_tag: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -275,6 +289,123 @@ fn object_name_from_key(key: &str, current_prefix: &str) -> String {
         .next()
         .unwrap_or("")
         .to_string()
+}
+
+#[tauri::command]
+pub async fn s3_create_multipart_upload(
+    profile: S3Profile,
+    bucket_name: String,
+    key: String,
+    content_type: Option<String>,
+) -> Result<String, String> {
+    let client = build_s3_client(&profile);
+    let mut request = client
+        .create_multipart_upload()
+        .bucket(&bucket_name)
+        .key(&key);
+
+    if let Some(content_type) = content_type.filter(|value| !value.trim().is_empty()) {
+        request = request.content_type(content_type);
+    }
+
+    let output = request
+        .send()
+        .await
+        .map_err(|e| format!("S3 error: {e:?}"))?;
+
+    output
+        .upload_id()
+        .map(ToString::to_string)
+        .ok_or_else(|| "S3 did not return a multipart upload id.".to_string())
+}
+
+#[tauri::command]
+pub async fn s3_upload_part(
+    profile: S3Profile,
+    bucket_name: String,
+    key: String,
+    upload_id: String,
+    part_number: i32,
+    body: Vec<u8>,
+) -> Result<MultipartUploadPartResult, String> {
+    let client = build_s3_client(&profile);
+    let output = client
+        .upload_part()
+        .bucket(&bucket_name)
+        .key(&key)
+        .upload_id(upload_id)
+        .part_number(part_number)
+        .body(ByteStream::from(body))
+        .send()
+        .await
+        .map_err(|e| format!("S3 error: {e:?}"))?;
+
+    output
+        .e_tag()
+        .map(|e_tag| MultipartUploadPartResult {
+            part_number,
+            e_tag: e_tag.to_string(),
+        })
+        .ok_or_else(|| "S3 did not return an ETag for the uploaded part.".to_string())
+}
+
+#[tauri::command]
+pub async fn s3_complete_multipart_upload(
+    profile: S3Profile,
+    bucket_name: String,
+    key: String,
+    upload_id: String,
+    parts: Vec<MultipartUploadPart>,
+) -> Result<(), String> {
+    let client = build_s3_client(&profile);
+    let mut completed_parts: Vec<CompletedPart> = parts
+        .into_iter()
+        .map(|part| {
+            CompletedPart::builder()
+                .part_number(part.part_number)
+                .e_tag(part.e_tag)
+                .build()
+        })
+        .collect();
+
+    completed_parts.sort_by_key(|part| part.part_number().unwrap_or_default());
+
+    let completed_upload = CompletedMultipartUpload::builder()
+        .set_parts(Some(completed_parts))
+        .build();
+
+    client
+        .complete_multipart_upload()
+        .bucket(&bucket_name)
+        .key(&key)
+        .upload_id(upload_id)
+        .multipart_upload(completed_upload)
+        .send()
+        .await
+        .map_err(|e| format!("S3 error: {e:?}"))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn s3_abort_multipart_upload(
+    profile: S3Profile,
+    bucket_name: String,
+    key: String,
+    upload_id: String,
+) -> Result<(), String> {
+    let client = build_s3_client(&profile);
+
+    client
+        .abort_multipart_upload()
+        .bucket(&bucket_name)
+        .key(&key)
+        .upload_id(upload_id)
+        .send()
+        .await
+        .map_err(|e| format!("S3 error: {e:?}"))?;
+
+    Ok(())
 }
 
 #[tauri::command]
