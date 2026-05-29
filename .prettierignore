@@ -1,0 +1,4 @@
+dist
+src-tauri/target
+bun.lockb
+ROADMAP.md
