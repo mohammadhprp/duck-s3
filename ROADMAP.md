@@ -53,14 +53,14 @@
 
 ## TODO
 
-* [ ] Create Tauri app
-* [ ] Configure React + TypeScript
-* [ ] Install Tailwind
-* [ ] Setup shadcn/ui
-* [ ] Setup ESLint + Prettier
-* [ ] Setup folder structure
-* [ ] Configure dark mode
-* [ ] Create app layout shell
+* [x] Create Tauri app
+* [x] Configure React + TypeScript
+* [x] Install Tailwind
+* [x] Setup shadcn/ui
+* [x] Setup ESLint + Prettier
+* [x] Setup folder structure
+* [x] Configure dark mode
+* [x] Create app layout shell
 
 ---
 
