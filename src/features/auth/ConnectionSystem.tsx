@@ -7,7 +7,6 @@ import {
   Plug,
   PlugZap,
   Server,
-  ShieldCheck,
   Trash2,
 } from "lucide-react";
 
@@ -118,10 +117,7 @@ export function ConnectionSystem() {
       <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <p className="mb-2 flex items-center gap-2 text-sm font-medium text-primary">
-              <ShieldCheck className="size-4" /> Phase 1 complete
-            </p>
-            <h3 className="text-2xl font-semibold tracking-tight">Connection System</h3>
+            <h3 className="text-2xl font-semibold tracking-tight">Create new profile</h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
               Create reusable S3-compatible profiles, encrypt saved secrets locally, test access
               with ListBuckets, and switch the active connection when you are ready to browse

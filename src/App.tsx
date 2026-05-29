@@ -41,8 +41,9 @@ function App() {
         <section className="flex min-w-0 flex-col">
           <header className="flex h-16 items-center justify-between border-b border-border px-6">
             <div>
-              <p className="text-sm text-muted-foreground">Phase 1</p>
-              <h2 className="text-xl font-semibold tracking-tight">Connection System</h2>
+              <p className="mb-2 flex items-center gap-2 text-sm font-medium text-primary">
+                <ShieldCheck className="size-4" /> Beta
+              </p>
             </div>
             <Button>New connection</Button>
           </header>
