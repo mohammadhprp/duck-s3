@@ -190,13 +190,13 @@ Browse files like Finder.
 
 ## Features
 
-* [ ] List objects
-* [ ] Folder navigation
-* [ ] Breadcrumbs
-* [ ] File table
-* [ ] Search current folder
-* [ ] Sort files
-* [ ] Refresh current path
+* [x] List objects
+* [x] Folder navigation
+* [x] Breadcrumbs
+* [x] File table
+* [x] Search current folder
+* [x] Sort files
+* [x] Refresh current path
 
 ---
 
@@ -211,11 +211,11 @@ Browse files like Finder.
 
 ## Technical Tasks
 
-* [ ] listObjectsV2()
-* [ ] Prefix handling
-* [ ] Delimiter handling
-* [ ] Pagination
-* [ ] Folder abstraction
+* [x] listObjectsV2()
+* [x] Prefix handling
+* [x] Delimiter handling
+* [x] Pagination
+* [x] Folder abstraction
 
 ---
 

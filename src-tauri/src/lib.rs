@@ -8,6 +8,7 @@ pub fn run() {
             s3::s3_list_buckets,
             s3::s3_create_bucket,
             s3::s3_delete_bucket,
+            s3::s3_list_objects,
             s3::s3_test_connection,
         ])
         .run(tauri::generate_context!())

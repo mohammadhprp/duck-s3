@@ -2,6 +2,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { normalizeEndpoint } from "@/services/s3/validation";
 import type { S3BucketSummary } from "@/types/bucket";
+import type { S3ObjectExplorerPage, S3ObjectFile, S3ObjectFolder } from "@/types/object";
 import type { ConnectionProfileInput, ConnectionTestResult } from "@/types/connection";
 
 interface TauriS3Profile {
@@ -22,6 +23,30 @@ interface TauriConnectionTestResult {
   ok: boolean;
   message: string;
   bucket_count: number | null;
+}
+
+interface TauriS3ObjectFolder {
+  name: string;
+  prefix: string;
+}
+
+interface TauriS3ObjectFile {
+  key: string;
+  name: string;
+  size: number;
+  last_modified: string | null;
+  storage_class: string | null;
+}
+
+interface TauriS3ObjectExplorerPage {
+  bucket_name: string;
+  prefix: string;
+  folders: TauriS3ObjectFolder[];
+  files: TauriS3ObjectFile[];
+  object_count: number;
+  folder_count: number;
+  page_count: number;
+  continuation_token: string | null;
 }
 
 function toTauriProfile(profile: ConnectionProfileInput): TauriS3Profile {
@@ -47,6 +72,36 @@ function fromTauriTestResult(result: TauriConnectionTestResult): ConnectionTestR
     ok: result.ok,
     message: result.message,
     bucketCount: result.bucket_count ?? undefined,
+  };
+}
+
+function fromTauriObjectFolder(folder: TauriS3ObjectFolder): S3ObjectFolder {
+  return {
+    name: folder.name,
+    prefix: folder.prefix,
+  };
+}
+
+function fromTauriObjectFile(file: TauriS3ObjectFile): S3ObjectFile {
+  return {
+    key: file.key,
+    name: file.name,
+    size: file.size,
+    lastModified: file.last_modified ?? undefined,
+    storageClass: file.storage_class ?? undefined,
+  };
+}
+
+function fromTauriObjectPage(page: TauriS3ObjectExplorerPage): S3ObjectExplorerPage {
+  return {
+    bucketName: page.bucket_name,
+    prefix: page.prefix,
+    folders: page.folders.map(fromTauriObjectFolder),
+    files: page.files.map(fromTauriObjectFile),
+    objectCount: page.object_count,
+    folderCount: page.folder_count,
+    pageCount: page.page_count,
+    continuationToken: page.continuation_token ?? undefined,
   };
 }
 
@@ -87,6 +142,26 @@ export async function deleteBucket(
     profile: toTauriProfile(profile),
     bucketName,
   });
+}
+
+export async function listObjects(
+  profile: ConnectionProfileInput,
+  bucketName: string,
+  prefix = "",
+  continuationToken?: string,
+): Promise<S3ObjectExplorerPage> {
+  if (!isTauri()) {
+    throw new Error("S3 operations require running inside Tauri. Use `bun run tauri dev`.");
+  }
+
+  const page = await invoke<TauriS3ObjectExplorerPage>("s3_list_objects", {
+    profile: toTauriProfile(profile),
+    bucketName,
+    prefix,
+    continuationToken: continuationToken ?? null,
+  });
+
+  return fromTauriObjectPage(page);
 }
 
 export async function testS3Connection(
