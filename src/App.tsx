@@ -17,7 +17,7 @@ const navigationItems: Array<{ label: string; icon: typeof ShieldCheck; page: Na
 
 const pageMetadata: Record<NavigationPage, { eyebrow: string; title: string }> = {
   connections: { eyebrow: "Profiles", title: "Connection profiles" },
-  buckets: { eyebrow: "Phase 2", title: "Bucket browser" },
+  buckets: { eyebrow: "Explore", title: "Bucket browser" },
   explorer: { eyebrow: "Coming soon", title: "Object explorer" },
   uploads: { eyebrow: "Coming soon", title: "Upload queue" },
   settings: { eyebrow: "Coming soon", title: "Settings" },
