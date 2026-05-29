@@ -232,6 +232,7 @@ export function ObjectExplorer() {
               placeholder="Search buckets"
               value={bucketSearchTerm}
               onChange={(event) => setBucketSearchTerm(event.target.value)}
+              aria-label="Search buckets"
             />
           </label>
         </div>
@@ -324,6 +325,7 @@ export function ObjectExplorer() {
                 placeholder="Search current folder"
                 value={objectSearchTerm}
                 onChange={(event) => setObjectSearchTerm(event.target.value)}
+                aria-label="Search objects"
               />
             </label>
             <p className="text-sm text-muted-foreground">

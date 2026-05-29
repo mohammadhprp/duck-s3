@@ -19,6 +19,7 @@ export interface S3ObjectExplorerPage {
   objectCount: number;
   folderCount: number;
   pageCount: number;
+  continuationToken?: string;
 }
 
 export type ObjectExplorerStatus = "idle" | "loading" | "error";

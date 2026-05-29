@@ -47,6 +47,7 @@ pub struct S3ObjectExplorerPage {
     pub object_count: usize,
     pub folder_count: usize,
     pub page_count: usize,
+    pub continuation_token: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -155,89 +156,76 @@ pub async fn s3_list_objects(
     profile: S3Profile,
     bucket_name: String,
     prefix: String,
+    continuation_token: Option<String>,
 ) -> Result<S3ObjectExplorerPage, String> {
     let client = build_s3_client(&profile);
     let normalized_prefix = normalize_prefix(&prefix);
-    let mut continuation_token: Option<String> = None;
     let mut folders_by_prefix: BTreeMap<String, S3ObjectFolder> = BTreeMap::new();
     let mut files: Vec<S3ObjectFile> = Vec::new();
-    let mut page_count = 0;
 
-    loop {
-        let mut request = client
-            .list_objects_v2()
-            .bucket(&bucket_name)
-            .delimiter("/")
-            .prefix(&normalized_prefix)
-            .max_keys(1000);
+    let mut request = client
+        .list_objects_v2()
+        .bucket(&bucket_name)
+        .delimiter("/")
+        .prefix(&normalized_prefix)
+        .max_keys(1000);
 
-        if let Some(token) = continuation_token.as_deref() {
-            request = request.continuation_token(token);
-        }
+    if let Some(token) = continuation_token.as_deref() {
+        request = request.continuation_token(token);
+    }
 
-        let output = request
-            .send()
-            .await
-            .map_err(|e| format!("S3 error: {e:?}"))?;
+    let output = request
+        .send()
+        .await
+        .map_err(|e| format!("S3 error: {e:?}"))?;
 
-        page_count += 1;
-
-        for common_prefix in output.common_prefixes() {
-            if let Some(folder_prefix) = common_prefix.prefix() {
-                if folder_prefix == normalized_prefix {
-                    continue;
-                }
-
-                let folder_name = folder_name_from_prefix(folder_prefix, &normalized_prefix);
-
-                if !folder_name.is_empty() {
-                    folders_by_prefix.insert(
-                        folder_prefix.to_string(),
-                        S3ObjectFolder {
-                            name: folder_name,
-                            prefix: folder_prefix.to_string(),
-                        },
-                    );
-                }
-            }
-        }
-
-        for object in output.contents() {
-            let Some(key) = object.key() else {
-                continue;
-            };
-
-            if key == normalized_prefix || key.ends_with('/') {
+    for common_prefix in output.common_prefixes() {
+        if let Some(folder_prefix) = common_prefix.prefix() {
+            if folder_prefix == normalized_prefix {
                 continue;
             }
 
-            let file_name = object_name_from_key(key, &normalized_prefix);
+            let folder_name = folder_name_from_prefix(folder_prefix, &normalized_prefix);
 
-            if file_name.is_empty() || file_name.contains('/') {
-                continue;
+            if !folder_name.is_empty() {
+                folders_by_prefix.insert(
+                    folder_prefix.to_string(),
+                    S3ObjectFolder {
+                        name: folder_name,
+                        prefix: folder_prefix.to_string(),
+                    },
+                );
             }
-
-            files.push(S3ObjectFile {
-                key: key.to_string(),
-                name: file_name,
-                size: object.size().unwrap_or_default(),
-                last_modified: object.last_modified().map(|d| d.to_string()),
-                storage_class: object
-                    .storage_class()
-                    .map(|storage_class| storage_class.as_str().to_string()),
-            });
-        }
-
-        if output.is_truncated().unwrap_or(false) {
-            continuation_token = output.next_continuation_token().map(ToString::to_string);
-
-            if continuation_token.is_none() {
-                break;
-            }
-        } else {
-            break;
         }
     }
+
+    for object in output.contents() {
+        let Some(key) = object.key() else {
+            continue;
+        };
+
+        if key == normalized_prefix || key.ends_with('/') {
+            continue;
+        }
+
+        let file_name = object_name_from_key(key, &normalized_prefix);
+
+        if file_name.is_empty() || file_name.contains('/') {
+            continue;
+        }
+
+        files.push(S3ObjectFile {
+            key: key.to_string(),
+            name: file_name,
+            size: object.size().unwrap_or_default(),
+            last_modified: object.last_modified().map(|d| d.to_string()),
+            storage_class: object
+                .storage_class()
+                .map(|storage_class| storage_class.as_str().to_string()),
+        });
+    }
+
+    let continuation_token = output.next_continuation_token().map(ToString::to_string);
 
     let mut folders: Vec<S3ObjectFolder> = folders_by_prefix.into_values().collect();
     folders.sort_by(|a, b| a.name.cmp(&b.name));
@@ -248,7 +236,8 @@ pub async fn s3_list_objects(
         prefix: normalized_prefix,
         object_count: files.len(),
         folder_count: folders.len(),
-        page_count,
+        page_count: 1,
+        continuation_token,
         folders,
         files,
     })

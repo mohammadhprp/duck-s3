@@ -46,6 +46,7 @@ interface TauriS3ObjectExplorerPage {
   object_count: number;
   folder_count: number;
   page_count: number;
+  continuation_token: string | null;
 }
 
 function toTauriProfile(profile: ConnectionProfileInput): TauriS3Profile {
@@ -100,6 +101,7 @@ function fromTauriObjectPage(page: TauriS3ObjectExplorerPage): S3ObjectExplorerP
     objectCount: page.object_count,
     folderCount: page.folder_count,
     pageCount: page.page_count,
+    continuationToken: page.continuation_token ?? undefined,
   };
 }
 
@@ -146,6 +148,7 @@ export async function listObjects(
   profile: ConnectionProfileInput,
   bucketName: string,
   prefix = "",
+  continuationToken?: string,
 ): Promise<S3ObjectExplorerPage> {
   if (!isTauri()) {
     throw new Error("S3 operations require running inside Tauri. Use `bun run tauri dev`.");
@@ -155,6 +158,7 @@ export async function listObjects(
     profile: toTauriProfile(profile),
     bucketName,
     prefix,
+    continuationToken: continuationToken ?? null,
   });
 
   return fromTauriObjectPage(page);

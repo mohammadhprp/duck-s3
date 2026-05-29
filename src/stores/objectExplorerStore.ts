@@ -11,6 +11,7 @@ interface ObjectExplorerState {
   status: ObjectExplorerStatus;
   lastMessage?: string;
   lastLoadedProfileId?: string;
+  inflightRequestToken?: string;
   openPath: (profile: ConnectionProfile, bucketName: string, prefix?: string) => Promise<void>;
   refreshCurrentPath: (profile: ConnectionProfile) => Promise<void>;
   resetExplorer: () => void;
@@ -21,16 +22,24 @@ export const useObjectExplorerStore = create<ObjectExplorerState>((set, get) => 
   status: "idle",
   async openPath(profile, bucketName, prefix = "") {
     const normalizedPrefix = normalizePrefix(prefix);
+    const requestToken = `${profile.id}:${bucketName}:${normalizedPrefix}:${Date.now()}`;
 
     set({
       currentBucketName: bucketName,
       currentPrefix: normalizedPrefix,
+      page: undefined,
       status: "loading",
       lastMessage: `Loading s3://${bucketName}/${normalizedPrefix}`,
+      inflightRequestToken: requestToken,
     });
 
     try {
       const page = await listObjects(profile, bucketName, normalizedPrefix);
+
+      const currentState = get();
+      if (currentState.inflightRequestToken !== requestToken) {
+        return;
+      }
 
       set({
         currentBucketName: bucketName,
@@ -39,12 +48,20 @@ export const useObjectExplorerStore = create<ObjectExplorerState>((set, get) => 
         status: "idle",
         lastLoadedProfileId: profile.id,
         lastMessage: `Loaded ${page.folderCount} folder${page.folderCount === 1 ? "" : "s"} and ${page.objectCount} file${page.objectCount === 1 ? "" : "s"}.`,
+        inflightRequestToken: undefined,
       });
     } catch (error) {
+      const currentState = get();
+      if (currentState.inflightRequestToken !== requestToken) {
+        return;
+      }
+
       set({
+        page: undefined,
         status: "error",
         lastLoadedProfileId: profile.id,
         lastMessage: getObjectExplorerErrorMessage(error),
+        inflightRequestToken: undefined,
       });
     }
   },
@@ -65,6 +82,7 @@ export const useObjectExplorerStore = create<ObjectExplorerState>((set, get) => 
       status: "idle",
       lastMessage: undefined,
       lastLoadedProfileId: undefined,
+      inflightRequestToken: undefined,
     });
   },
 }));
