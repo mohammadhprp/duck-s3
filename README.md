@@ -17,7 +17,7 @@ A lightweight desktop app for managing S3 storage connections.
 bun install
 
 # Run dev server
-bun run dev
+bun run tauri dev
 
 # Build desktop app
 bun run tauri build
