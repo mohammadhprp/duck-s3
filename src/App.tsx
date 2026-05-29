@@ -16,9 +16,7 @@ function App() {
       <div className="grid min-h-screen grid-cols-[260px_1fr]">
         <aside className="border-r border-border bg-card/60 px-4 py-5">
           <div className="mb-8 flex items-center gap-3 px-2">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-lg font-bold text-primary-foreground shadow-sm">
-              🦆
-            </div>
+            <img src="/logo.png" alt="Duck S3 logo" className="size-10 rounded-xl shadow-sm" />
             <div>
               <h1 className="text-lg font-semibold tracking-tight">Duck S3</h1>
               <p className="text-xs text-muted-foreground">S3-compatible browser</p>
