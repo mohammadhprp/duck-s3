@@ -4,6 +4,7 @@ mod s3;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             s3::s3_list_buckets,
             s3::s3_create_bucket,
@@ -14,6 +15,11 @@ pub fn run() {
             s3::s3_complete_multipart_upload,
             s3::s3_abort_multipart_upload,
             s3::s3_test_connection,
+            s3::s3_get_object_info,
+            s3::s3_download_object,
+            s3::s3_download_folder,
+            s3::s3_open_in_finder,
+            s3::get_home_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

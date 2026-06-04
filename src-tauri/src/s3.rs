@@ -8,6 +8,7 @@ use aws_sdk_s3::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use tauri::Emitter;
 
 #[derive(Debug, Deserialize)]
 pub struct S3Profile {
@@ -427,4 +428,304 @@ pub async fn s3_test_connection(profile: S3Profile) -> Result<ConnectionTestResu
             })
         }
     }
+}
+
+#[derive(Debug, Serialize)]
+pub struct S3ObjectInfo {
+    pub key: String,
+    pub size: i64,
+    pub content_type: Option<String>,
+    pub last_modified: Option<String>,
+}
+
+#[tauri::command]
+pub async fn s3_get_object_info(
+    profile: S3Profile,
+    bucket_name: String,
+    key: String,
+) -> Result<S3ObjectInfo, String> {
+    let client = build_s3_client(&profile);
+
+    let output = client
+        .head_object()
+        .bucket(&bucket_name)
+        .key(&key)
+        .send()
+        .await
+        .map_err(|e| format!("S3 error: {e:?}"))?;
+
+    Ok(S3ObjectInfo {
+        key,
+        size: output.content_length().unwrap_or(0),
+        content_type: output.content_type().map(ToString::to_string),
+        last_modified: output.last_modified().map(|d| d.to_string()),
+    })
+}
+
+const DOWNLOAD_CHUNK_SIZE: usize = 8 * 1024 * 1024;
+
+#[tauri::command]
+pub async fn s3_download_object(
+    app: tauri::AppHandle,
+    profile: S3Profile,
+    bucket_name: String,
+    key: String,
+    destination_path: String,
+) -> Result<(), String> {
+    let client = build_s3_client(&profile);
+
+    let info = client
+        .head_object()
+        .bucket(&bucket_name)
+        .key(&key)
+        .send()
+        .await
+        .map_err(|e| format!("S3 error: {e:?}"))?;
+
+    let total_size = info.content_length().unwrap_or(0) as usize;
+    let download_id = format!("{}:{}", bucket_name, key);
+
+    app.emit("download_progress", DownloadProgressEvent {
+        id: download_id.clone(),
+        status: "starting".to_string(),
+        downloaded_bytes: 0,
+        total_bytes: total_size,
+        destination_path: destination_path.clone(),
+        error: None,
+    })
+    .map_err(|e| format!("Failed to emit event: {e}"))?;
+
+    use std::fs;
+    use std::path::Path;
+
+    if let Some(parent) = Path::new(&destination_path).parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {e}"))?;
+    }
+
+    let get_object_output = client
+        .get_object()
+        .bucket(&bucket_name)
+        .key(&key)
+        .send()
+        .await
+        .map_err(|e| format!("S3 error: {e:?}"))?;
+
+    let mut file = fs::File::create(&destination_path)
+        .map_err(|e| format!("Failed to create file: {e}"))?;
+
+    use std::io::Write;
+    let mut stream = get_object_output.body.into_async_read();
+    let mut downloaded_bytes: usize = 0;
+    let mut buffer = vec![0u8; DOWNLOAD_CHUNK_SIZE];
+
+    loop {
+        use tokio::io::AsyncReadExt;
+        let bytes_read = stream
+            .read(&mut buffer)
+            .await
+            .map_err(|e| format!("Failed to read stream: {e}"))?;
+
+        if bytes_read == 0 {
+            break;
+        }
+
+        file.write_all(&buffer[..bytes_read])
+            .map_err(|e| format!("Failed to write file: {e}"))?;
+
+        downloaded_bytes += bytes_read;
+
+        app.emit("download_progress", DownloadProgressEvent {
+            id: download_id.clone(),
+            status: "downloading".to_string(),
+            downloaded_bytes,
+            total_bytes: total_size,
+            destination_path: destination_path.clone(),
+            error: None,
+        })
+        .map_err(|e| format!("Failed to emit event: {e}"))?;
+    }
+
+    file.flush().map_err(|e| format!("Failed to flush file: {e}"))?;
+
+    app.emit("download_progress", DownloadProgressEvent {
+        id: download_id.clone(),
+        status: "completed".to_string(),
+        downloaded_bytes,
+        total_bytes: total_size,
+        destination_path: destination_path.clone(),
+        error: None,
+    })
+    .map_err(|e| format!("Failed to emit event: {e}"))?;
+
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DownloadProgressEvent {
+    pub id: String,
+    pub status: String,
+    pub downloaded_bytes: usize,
+    pub total_bytes: usize,
+    pub destination_path: String,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DownloadFolderResult {
+    pub files_downloaded: usize,
+    pub files_failed: usize,
+    pub destination_path: String,
+}
+
+#[tauri::command]
+pub async fn s3_download_folder(
+    app: tauri::AppHandle,
+    profile: S3Profile,
+    bucket_name: String,
+    prefix: String,
+    destination_path: String,
+) -> Result<DownloadFolderResult, String> {
+    let client = build_s3_client(&profile);
+    let mut files_downloaded = 0;
+    let mut files_failed = 0;
+    let folder_id = format!("folder:{}:{}", bucket_name, prefix);
+
+    app.emit("download_progress", DownloadProgressEvent {
+        id: folder_id.clone(),
+        status: "starting".to_string(),
+        downloaded_bytes: 0,
+        total_bytes: 0,
+        destination_path: destination_path.clone(),
+        error: None,
+    })
+    .map_err(|e| format!("Failed to emit event: {e}"))?;
+
+    let mut continuation_token: Option<String> = None;
+
+    loop {
+        let mut request = client
+            .list_objects_v2()
+            .bucket(&bucket_name)
+            .prefix(&prefix)
+            .max_keys(1000);
+
+        if let Some(ref token) = continuation_token {
+            request = request.continuation_token(token);
+        }
+
+        let output = request
+            .send()
+            .await
+            .map_err(|e| format!("S3 error: {e:?}"))?;
+
+        for object in output.contents() {
+            let Some(key) = object.key() else { continue };
+
+            if key.ends_with('/') {
+                continue;
+            }
+
+            let relative_path = key
+                .strip_prefix(&prefix)
+                .unwrap_or(key)
+                .trim_start_matches('/');
+
+            let dest_file_path = format!("{}/{}", destination_path.trim_end_matches('/'), relative_path);
+
+            match download_single_object_for_folder(&app, &client, &bucket_name, key, &dest_file_path).await {
+                Ok(_) => files_downloaded += 1,
+                Err(_) => files_failed += 1,
+            }
+        }
+
+        continuation_token = output.next_continuation_token().map(ToString::to_string);
+
+        if continuation_token.is_none() {
+            break;
+        }
+    }
+
+    app.emit("download_progress", DownloadProgressEvent {
+        id: folder_id,
+        status: "completed".to_string(),
+        downloaded_bytes: 0,
+        total_bytes: 0,
+        destination_path: destination_path.clone(),
+        error: None,
+    })
+    .map_err(|e| format!("Failed to emit event: {e}"))?;
+
+    Ok(DownloadFolderResult {
+        files_downloaded,
+        files_failed,
+        destination_path,
+    })
+}
+
+async fn download_single_object_for_folder(
+    _app: &tauri::AppHandle,
+    client: &S3Client,
+    bucket_name: &str,
+    key: &str,
+    destination_path: &str,
+) -> Result<(), String> {
+    use std::fs;
+    use std::path::Path;
+    use std::io::Write;
+    use tokio::io::AsyncReadExt;
+
+    if let Some(parent) = Path::new(destination_path).parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {e}"))?;
+    }
+
+    let get_object_output = client
+        .get_object()
+        .bucket(bucket_name)
+        .key(key)
+        .send()
+        .await
+        .map_err(|e| format!("S3 error: {e:?}"))?;
+
+    let mut file = fs::File::create(destination_path)
+        .map_err(|e| format!("Failed to create file: {e}"))?;
+
+    let mut stream = get_object_output.body.into_async_read();
+    let mut buffer = vec![0u8; DOWNLOAD_CHUNK_SIZE];
+
+    loop {
+        let bytes_read = stream
+            .read(&mut buffer)
+            .await
+            .map_err(|e| format!("Failed to read stream: {e}"))?;
+
+        if bytes_read == 0 {
+            break;
+        }
+
+        file.write_all(&buffer[..bytes_read])
+            .map_err(|e| format!("Failed to write file: {e}"))?;
+    }
+
+    file.flush().map_err(|e| format!("Failed to flush file: {e}"))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn s3_open_in_finder(path: String) -> Result<(), String> {
+    use std::process::Command;
+
+    Command::new("open")
+        .arg("-R")
+        .arg(&path)
+        .status()
+        .map_err(|e| format!("Failed to open in Finder: {e}"))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_home_dir() -> Result<String, String> {
+    let home = std::env::var("HOME").map_err(|e| format!("Failed to get home directory: {e}"))?;
+    Ok(home)
 }

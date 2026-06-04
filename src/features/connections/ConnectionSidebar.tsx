@@ -55,7 +55,9 @@ export function ConnectionSidebar() {
                           : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                       }`}
                       onClick={() => {
-                        if (!isActive) {
+                        if (isActive) {
+                          void disconnect();
+                        } else {
                           void connectProfile(profile.id);
                         }
                       }}
@@ -70,17 +72,6 @@ export function ConnectionSidebar() {
                         {profile.provider.toUpperCase()} · {profile.endpoint || "default"}
                       </span>
                     </button>
-                    {isActive && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="shrink-0 opacity-0 transition group-hover:opacity-100"
-                        onClick={() => void disconnect()}
-                      >
-                        Disconnect
-                      </Button>
-                    )}
                   </div>
                 );
               })}

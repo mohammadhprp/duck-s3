@@ -8,11 +8,13 @@ import {
   RefreshCw,
   Search,
   ArrowLeft,
+  Download,
 } from "lucide-react";
 
 import { Button } from "@cloudflare/kumo/components/button";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useObjectExplorerStore } from "@/stores/objectExplorerStore";
+import { useDownloadStore } from "@/stores/downloadStore";
 import type {
   ObjectExplorerSortDirection,
   ObjectExplorerSortField,
@@ -36,6 +38,7 @@ export function ObjectExplorer() {
   const { activeProfileId, profiles } = useConnectionStore();
   const { currentBucketName, currentPrefix, page, status, openPath, refreshCurrentPath } =
     useObjectExplorerStore();
+  const { enqueueDownloads } = useDownloadStore();
   const [objectSearchTerm, setObjectSearchTerm] = useState("");
   const [sortField, setSortField] = useState<ObjectExplorerSortField>("name");
   const [sortDirection, setSortDirection] = useState<ObjectExplorerSortDirection>("asc");
@@ -96,6 +99,30 @@ export function ObjectExplorer() {
     parts.pop();
     const parentPrefix = parts.length > 0 ? parts.join("/") + "/" : "";
     await handlePathOpen(parentPrefix);
+  }
+
+  function handleDownloadFile(file: S3ObjectFile) {
+    if (!activeProfile || !currentBucketName) {
+      return;
+    }
+
+    enqueueDownloads({
+      profile: activeProfile,
+      bucketName: currentBucketName,
+      selections: [{ key: file.key, name: file.name, isFolder: false, size: file.size }],
+    });
+  }
+
+  function handleDownloadFolder(folder: S3ObjectFolder) {
+    if (!activeProfile || !currentBucketName) {
+      return;
+    }
+
+    enqueueDownloads({
+      profile: activeProfile,
+      bucketName: currentBucketName,
+      selections: [{ key: folder.prefix, name: folder.name, isFolder: true }],
+    });
   }
 
   if (!activeProfile) {
@@ -203,7 +230,17 @@ export function ObjectExplorer() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
-        {rows.length === 0 ? (
+        {status === "loading" ? (
+          <div className="flex flex-1 items-center justify-center p-8">
+            <div className="text-center">
+              <RefreshCw className="mx-auto mb-4 size-8 animate-spin text-muted-foreground" />
+              <h3 className="text-sm font-semibold">Loading files...</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Fetching objects from S3
+              </p>
+            </div>
+          </div>
+        ) : rows.length === 0 ? (
           <div className="flex flex-1 items-center justify-center p-8">
             <div className="text-center">
               <FolderOpen className="mx-auto mb-4 size-8 text-muted-foreground" />
@@ -233,6 +270,7 @@ export function ObjectExplorer() {
                     </button>
                   </th>
                 ))}
+                <th className="border-b border-border px-4 py-2.5 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -267,6 +305,23 @@ export function ObjectExplorer() {
                   </td>
                   <td className="border-b border-border px-4 py-2.5 text-muted-foreground">
                     {row.type === "folder" ? "Folder" : (row.file.storageClass ?? "Standard")}
+                  </td>
+                  <td className="border-b border-border px-4 py-2.5">
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={isBusy}
+                        onClick={() =>
+                          row.type === "folder"
+                            ? handleDownloadFolder(row.folder)
+                            : handleDownloadFile(row.file)
+                        }
+                      >
+                        <Download className="size-3" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -5,6 +5,7 @@ import { useObjectExplorerStore } from "@/stores/objectExplorerStore";
 import { ConnectionSidebar } from "@/features/connections/ConnectionSidebar";
 import { BucketPanel } from "@/features/buckets/BucketPanel";
 import { ObjectExplorer } from "@/features/explorer/ObjectExplorer";
+import { DownloadPanel } from "@/features/explorer/DownloadPanel";
 
 function App() {
   const { activeProfileId, hydrated, hydrate, profiles } = useConnectionStore();
@@ -34,8 +35,8 @@ function App() {
   }, [activeProfile, lastLoadedProfileId, refreshBuckets, bucketStatus, resetExplorer]);
 
   return (
-    <main className="h-screen overflow-hidden bg-background text-foreground">
-      <div className="grid h-full grid-cols-[260px_240px_1fr]">
+    <main className="flex h-screen flex-col bg-background text-foreground">
+      <div className="grid flex-1 grid-cols-[260px_240px_1fr]">
         <div className="h-full overflow-hidden">
           <ConnectionSidebar />
         </div>
@@ -46,6 +47,7 @@ function App() {
           <ObjectExplorer />
         </div>
       </div>
+      <DownloadPanel />
     </main>
   );
 }

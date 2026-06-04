@@ -282,18 +282,18 @@ Keep MVP simple:
 
 ## Features
 
-* [ ] Download file
-* [ ] Download folder
-* [ ] Progress tracking
-* [ ] Open in Finder
+* [X] Download file
+* [X] Download folder
+* [X] Progress tracking
+* [X] Open in Finder
 
 ---
 
 ## Technical Tasks
 
-* [ ] Stream downloads
-* [ ] Handle large files
-* [ ] Save dialog integration
+* [X] Stream downloads
+* [X] Handle large files
+* [X] Save dialog integration
 
 ---
 
