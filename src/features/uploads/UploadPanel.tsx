@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, FolderUp, RefreshCw, RotateCcw, Upload, XCircle } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@cloudflare/kumo/components/button";
 import { useBucketStore } from "@/stores/bucketStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useObjectExplorerStore } from "@/stores/objectExplorerStore";

@@ -10,7 +10,7 @@ import {
   Search,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@cloudflare/kumo/components/button";
 import { useBucketStore } from "@/stores/bucketStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useObjectExplorerStore } from "@/stores/objectExplorerStore";
@@ -216,7 +216,8 @@ export function ObjectExplorer() {
             <Button
               type="button"
               variant="outline"
-              size="icon"
+              shape="square"
+              size="base"
               disabled={isBusy}
               onClick={() => void refreshBuckets(activeProfile)}
               aria-label="Refresh buckets"
