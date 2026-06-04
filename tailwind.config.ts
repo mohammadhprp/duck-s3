@@ -2,7 +2,11 @@ import type { Config } from "tailwindcss";
 
 const config = {
   darkMode: ["class"],
-  content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  content: [
+    "./index.html",
+    "./src/**/*.{ts,tsx}",
+    "./node_modules/@cloudflare/kumo/dist/chunks/{button-*,layer-card-*}.js",
+  ],
   theme: {
     container: {
       center: true,
@@ -46,6 +50,25 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        kumo: {
+          brand: "var(--color-kumo-brand)",
+          "brand-hover": "var(--color-kumo-brand-hover)",
+          base: "var(--color-kumo-base)",
+          elevated: "var(--color-kumo-elevated)",
+          fill: "var(--color-kumo-fill)",
+          tint: "var(--color-kumo-tint)",
+          danger: "hsl(var(--destructive))",
+          focus: "hsl(var(--ring))",
+          hairline: "var(--color-kumo-hairline)",
+          default: "var(--text-color-kumo-default)",
+          subtle: "var(--text-color-kumo-subtle)",
+        },
+      },
+      spacing: {
+        "6.5": "1.625rem",
+      },
+      boxShadow: {
+        xs: "0 1px 2px rgb(21 20 20 / 0.05)",
       },
       borderRadius: {
         lg: "var(--radius)",

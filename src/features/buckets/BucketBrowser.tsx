@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Database, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@cloudflare/kumo/components/button";
 import { useBucketStore } from "@/stores/bucketStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 
@@ -127,7 +127,8 @@ export function BucketBrowser() {
             <Button
               type="button"
               variant="outline"
-              size="icon"
+              shape="square"
+              size="base"
               disabled={isBusy}
               onClick={() => void refreshBuckets(activeProfile)}
               aria-label="Refresh buckets"

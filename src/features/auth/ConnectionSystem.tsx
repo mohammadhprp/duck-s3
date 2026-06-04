@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Cloud, KeyRound, Lock, Plug, PlugZap, Server, Trash2 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@cloudflare/kumo/components/button";
 import { useConnectionStore } from "@/stores/connectionStore";
 import type { ConnectionProfile, ConnectionProfileInput, S3Provider } from "@/types/connection";
 
@@ -321,7 +321,9 @@ export function ConnectionSystem() {
                     <Button
                       type="button"
                       variant="ghost"
-                      size="icon"
+                      shape="square"
+                      size="base"
+                      aria-label={`Delete ${profile.name}`}
                       onClick={() => void removeProfile(profile.id)}
                     >
                       <Trash2 className="size-4" />
