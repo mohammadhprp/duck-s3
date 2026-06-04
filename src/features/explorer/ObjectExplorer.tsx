@@ -1,17 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowUpDown,
   ChevronRight,
-  Database,
   File,
   Folder,
   FolderOpen,
   RefreshCw,
   Search,
+  ArrowLeft,
 } from "lucide-react";
 
 import { Button } from "@cloudflare/kumo/components/button";
-import { useBucketStore } from "@/stores/bucketStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useObjectExplorerStore } from "@/stores/objectExplorerStore";
 import type {
@@ -20,6 +19,7 @@ import type {
   S3ObjectFile,
   S3ObjectFolder,
 } from "@/types/object";
+import { UploadTrigger } from "./UploadTrigger";
 
 type ExplorerRow =
   | { type: "folder"; folder: S3ObjectFolder; name: string }
@@ -33,101 +33,17 @@ const sortLabels: Record<ObjectExplorerSortField, string> = {
 };
 
 export function ObjectExplorer() {
-  const {
-    activeProfileId,
-    hydrated,
-    hydrate,
-    profiles,
-    status: connectionStatus,
-  } = useConnectionStore();
-  const {
-    buckets,
-    selectedBucketName,
-    status: bucketStatus,
-    lastLoadedProfileId: lastLoadedBucketProfileId,
-    selectBucket,
-    refreshBuckets,
-    resetBuckets,
-  } = useBucketStore();
-  const {
-    currentBucketName,
-    currentPrefix,
-    page,
-    status,
-    lastMessage,
-    lastLoadedProfileId,
-    openPath,
-    refreshCurrentPath,
-    resetExplorer,
-  } = useObjectExplorerStore();
-  const [bucketSearchTerm, setBucketSearchTerm] = useState("");
+  const { activeProfileId, profiles } = useConnectionStore();
+  const { currentBucketName, currentPrefix, page, status, openPath, refreshCurrentPath } =
+    useObjectExplorerStore();
   const [objectSearchTerm, setObjectSearchTerm] = useState("");
   const [sortField, setSortField] = useState<ObjectExplorerSortField>("name");
   const [sortDirection, setSortDirection] = useState<ObjectExplorerSortDirection>("asc");
-
-  useEffect(() => {
-    if (!hydrated) {
-      void hydrate();
-    }
-  }, [hydrate, hydrated]);
 
   const activeProfile = useMemo(
     () => profiles.find((profile) => profile.id === activeProfileId),
     [activeProfileId, profiles],
   );
-
-  useEffect(() => {
-    if (!activeProfile) {
-      resetBuckets();
-      resetExplorer();
-      return;
-    }
-
-    if (lastLoadedBucketProfileId !== activeProfile.id && bucketStatus !== "loading") {
-      void refreshBuckets(activeProfile);
-    }
-  }, [
-    activeProfile,
-    bucketStatus,
-    lastLoadedBucketProfileId,
-    refreshBuckets,
-    resetBuckets,
-    resetExplorer,
-  ]);
-
-  const selectedBucket = selectedBucketName ?? buckets[0]?.name;
-
-  useEffect(() => {
-    if (!activeProfile || !selectedBucket) {
-      return;
-    }
-
-    if (
-      currentBucketName !== selectedBucket ||
-      lastLoadedProfileId !== activeProfile.id ||
-      (status === "idle" && !page)
-    ) {
-      void openPath(activeProfile, selectedBucket, "");
-    }
-  }, [
-    activeProfile,
-    currentBucketName,
-    lastLoadedProfileId,
-    openPath,
-    page,
-    selectedBucket,
-    status,
-  ]);
-
-  const filteredBuckets = useMemo(() => {
-    const normalizedSearchTerm = bucketSearchTerm.trim().toLowerCase();
-
-    if (!normalizedSearchTerm) {
-      return buckets;
-    }
-
-    return buckets.filter((bucket) => bucket.name.toLowerCase().includes(normalizedSearchTerm));
-  }, [buckets, bucketSearchTerm]);
 
   const rows = useMemo(() => {
     const normalizedSearchTerm = objectSearchTerm.trim().toLowerCase();
@@ -150,7 +66,7 @@ export function ObjectExplorer() {
   }, [objectSearchTerm, page, sortDirection, sortField]);
 
   const breadcrumbItems = useMemo(() => buildBreadcrumbItems(currentPrefix), [currentPrefix]);
-  const isBusy = status === "loading" || bucketStatus === "loading";
+  const isBusy = status === "loading";
 
   function handleSort(nextSortField: ObjectExplorerSortField) {
     if (sortField === nextSortField) {
@@ -162,15 +78,6 @@ export function ObjectExplorer() {
     setSortDirection("asc");
   }
 
-  async function handleBucketSelect(bucketName: string) {
-    selectBucket(bucketName);
-    setObjectSearchTerm("");
-
-    if (activeProfile) {
-      await openPath(activeProfile, bucketName, "");
-    }
-  }
-
   async function handlePathOpen(prefix: string) {
     if (!activeProfile || !currentBucketName) {
       return;
@@ -180,263 +87,194 @@ export function ObjectExplorer() {
     await openPath(activeProfile, currentBucketName, prefix);
   }
 
+  async function handleGoUp() {
+    if (!currentPrefix || !activeProfile || !currentBucketName) {
+      return;
+    }
+
+    const parts = currentPrefix.split("/").filter(Boolean);
+    parts.pop();
+    const parentPrefix = parts.length > 0 ? parts.join("/") + "/" : "";
+    await handlePathOpen(parentPrefix);
+  }
+
   if (!activeProfile) {
     return (
       <div className="flex flex-1 items-center justify-center p-6">
-        <section className="max-w-xl rounded-xl border border-border bg-card p-8 text-center shadow-sm">
-          <FolderOpen className="mx-auto mb-4 size-10 text-primary" />
-          <h2 className="text-2xl font-semibold tracking-tight">
-            Connect before exploring objects
-          </h2>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            The object explorer needs an active S3 profile before it can list buckets, folders, and
-            files.
+        <div className="text-center">
+          <FolderOpen className="mx-auto mb-4 size-10 text-muted-foreground" />
+          <h2 className="text-lg font-semibold">Select a connection</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Choose a connection from the sidebar to start browsing files.
           </p>
-          <p className="mt-4 rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">
-            {hydrated
-              ? "No active profile is connected."
-              : connectionStatus === "testing"
-                ? "Loading connection state..."
-                : "Preparing connection state..."}
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentBucketName) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-6">
+        <div className="text-center">
+          <FolderOpen className="mx-auto mb-4 size-10 text-muted-foreground" />
+          <h2 className="text-lg font-semibold">No bucket selected</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Select a bucket from the bucket panel to browse its contents.
           </p>
-        </section>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="grid flex-1 grid-cols-[300px_minmax(0,1fr)] gap-6 p-6">
-      <aside className="flex min-h-0 flex-col rounded-xl border border-border bg-card shadow-sm">
-        <div className="border-b border-border p-4">
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold tracking-tight">Buckets</h2>
-              <p className="mt-1 text-xs text-muted-foreground">{activeProfile.name}</p>
-            </div>
+    <section className="flex h-full min-w-0 flex-col bg-card">
+      <div className="border-b border-border px-4 py-3">
+        <div className="mb-3 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-semibold">{currentBucketName}</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <UploadTrigger />
             <Button
               type="button"
               variant="outline"
-              shape="square"
-              size="base"
+              size="sm"
               disabled={isBusy}
-              onClick={() => void refreshBuckets(activeProfile)}
-              aria-label="Refresh buckets"
-            >
-              <RefreshCw className={`size-4 ${bucketStatus === "loading" ? "animate-spin" : ""}`} />
-            </Button>
-          </div>
-
-          <label className="relative block text-sm font-medium">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
-              placeholder="Search buckets"
-              value={bucketSearchTerm}
-              onChange={(event) => setBucketSearchTerm(event.target.value)}
-              aria-label="Search buckets"
-            />
-          </label>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          {filteredBuckets.length === 0 ? (
-            <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-              {buckets.length === 0
-                ? "No buckets found for this profile."
-                : "No buckets match your search."}
-            </p>
-          ) : (
-            <nav className="space-y-2" aria-label="Explorer bucket sidebar">
-              {filteredBuckets.map((bucket) => (
-                <button
-                  key={bucket.name}
-                  type="button"
-                  className={`flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left text-sm transition-colors ${
-                    bucket.name === currentBucketName
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-background hover:bg-accent"
-                  }`}
-                  onClick={() => void handleBucketSelect(bucket.name)}
-                >
-                  <Database className="size-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate font-medium">{bucket.name}</span>
-                </button>
-              ))}
-            </nav>
-          )}
-        </div>
-      </aside>
-
-      <section className="flex min-w-0 flex-col rounded-xl border border-border bg-card shadow-sm">
-        <div className="border-b border-border p-5">
-          <div className="mb-5 flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Object explorer
-              </p>
-              <h2 className="mt-2 truncate text-2xl font-semibold tracking-tight">
-                {currentBucketName ? `s3://${currentBucketName}` : "Choose a bucket"}
-              </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Browse S3 prefixes as folders, search the current folder, and sort object metadata.
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={isBusy || !currentBucketName}
               onClick={() => void refreshCurrentPath(activeProfile)}
             >
-              <RefreshCw className={`mr-2 size-4 ${status === "loading" ? "animate-spin" : ""}`} />
-              Refresh path
+              <RefreshCw className={`size-3 ${status === "loading" ? "animate-spin" : ""}`} />
             </Button>
           </div>
+        </div>
 
-          <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-1.5 text-sm">
+          {currentPrefix && (
             <Button
               type="button"
-              variant={currentPrefix ? "outline" : "secondary"}
+              variant="outline"
               size="sm"
-              disabled={!currentBucketName || isBusy}
-              onClick={() => void handlePathOpen("")}
+              disabled={isBusy}
+              onClick={() => void handleGoUp()}
             >
-              Root
+              <ArrowLeft className="mr-1 size-3" /> Up
             </Button>
-            {breadcrumbItems.map((item) => (
-              <div key={item.prefix} className="flex items-center gap-2">
-                <ChevronRight className="size-4 text-muted-foreground" />
-                <Button
-                  type="button"
-                  variant={item.prefix === currentPrefix ? "secondary" : "outline"}
-                  size="sm"
-                  disabled={isBusy}
-                  onClick={() => void handlePathOpen(item.prefix)}
-                >
-                  {item.name}
-                </Button>
-              </div>
-            ))}
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
-            <label className="relative block text-sm font-medium">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
-                placeholder="Search current folder"
-                value={objectSearchTerm}
-                onChange={(event) => setObjectSearchTerm(event.target.value)}
-                aria-label="Search objects"
-              />
-            </label>
-            <p className="text-sm text-muted-foreground">
-              {page
-                ? `${page.folderCount} folder${page.folderCount === 1 ? "" : "s"} · ${page.objectCount} file${page.objectCount === 1 ? "" : "s"} · ${page.pageCount} S3 page${page.pageCount === 1 ? "" : "s"}`
-                : "No path loaded yet."}
-            </p>
-          </div>
-
-          {lastMessage ? (
-            <p className="mt-4 rounded-lg border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
-              {lastMessage}
-            </p>
-          ) : null}
+          )}
+          <Button
+            type="button"
+            variant={!currentPrefix ? "secondary" : "ghost"}
+            size="sm"
+            disabled={isBusy}
+            onClick={() => void handlePathOpen("")}
+          >
+            Root
+          </Button>
+          {breadcrumbItems.map((item) => (
+            <div key={item.prefix} className="flex items-center gap-1">
+              <ChevronRight className="size-3 text-muted-foreground" />
+              <Button
+                type="button"
+                variant={item.prefix === currentPrefix ? "secondary" : "ghost"}
+                size="sm"
+                disabled={isBusy}
+                onClick={() => void handlePathOpen(item.prefix)}
+              >
+                {item.name}
+              </Button>
+            </div>
+          ))}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto p-5">
-          {!currentBucketName ? (
-            <EmptyExplorerState
-              icon={Database}
-              title="No bucket selected"
-              description="Choose a bucket from the sidebar to start browsing objects."
+        <div className="mt-3 flex items-center gap-3">
+          <label className="relative block flex-1 text-sm font-medium">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              className="h-8 w-full rounded-md border border-input bg-background pl-8 pr-3 text-xs outline-none ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+              placeholder="Search current folder"
+              value={objectSearchTerm}
+              onChange={(event) => setObjectSearchTerm(event.target.value)}
             />
-          ) : rows.length === 0 ? (
-            <EmptyExplorerState
-              icon={FolderOpen}
-              title={objectSearchTerm ? "No matching objects" : "This folder is empty"}
-              description={
-                objectSearchTerm
-                  ? "Clear the current-folder search to see all folders and files in this path."
-                  : "S3 returned no common prefixes or objects for this prefix."
-              }
-            />
-          ) : (
-            <table className="w-full table-fixed border-separate border-spacing-0 overflow-hidden rounded-lg border border-border text-sm">
-              <thead className="bg-muted/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  {(["name", "size", "lastModified", "storageClass"] as const).map((field) => (
-                    <th key={field} className="border-b border-border px-4 py-3 font-medium">
+          </label>
+          <p className="shrink-0 text-xs text-muted-foreground">
+            {page
+              ? `${page.folderCount} folder${page.folderCount === 1 ? "" : "s"} · ${page.objectCount} file${page.objectCount === 1 ? "" : "s"}`
+              : "Loading..."}
+          </p>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-auto">
+        {rows.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center p-8">
+            <div className="text-center">
+              <FolderOpen className="mx-auto mb-4 size-8 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">
+                {objectSearchTerm ? "No matching objects" : "This folder is empty"}
+              </h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {objectSearchTerm
+                  ? "Clear the search to see all items."
+                  : "S3 returned no common prefixes or objects for this path."}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <table className="w-full border-separate border-spacing-0 text-sm">
+            <thead className="sticky top-0 bg-muted/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                {(["name", "size", "lastModified", "storageClass"] as const).map((field) => (
+                  <th key={field} className="border-b border-border px-4 py-2.5 font-medium">
+                    <button
+                      type="button"
+                      className="flex items-center gap-1.5 hover:text-foreground"
+                      onClick={() => handleSort(field)}
+                    >
+                      {sortLabels[field]}
+                      <ArrowUpDown className="size-3" />
+                    </button>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr
+                  key={row.type === "folder" ? row.folder.prefix : row.file.key}
+                  className="bg-background transition hover:bg-accent/50"
+                >
+                  <td className="border-b border-border px-4 py-2.5">
+                    {row.type === "folder" ? (
                       <button
                         type="button"
-                        className="flex items-center gap-2 hover:text-foreground"
-                        onClick={() => handleSort(field)}
+                        className="flex min-w-0 items-center gap-2 text-left font-medium text-primary hover:underline"
+                        disabled={isBusy}
+                        onClick={() => void handlePathOpen(row.folder.prefix)}
                       >
-                        {sortLabels[field]}
-                        <ArrowUpDown className="size-3" />
+                        <Folder className="size-4 shrink-0" />
+                        <span className="truncate">{row.name}</span>
                       </button>
-                    </th>
-                  ))}
+                    ) : (
+                      <div className="flex min-w-0 items-center gap-2">
+                        <File className="size-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate font-medium">{row.name}</span>
+                      </div>
+                    )}
+                  </td>
+                  <td className="border-b border-border px-4 py-2.5 text-muted-foreground">
+                    {row.type === "folder" ? "—" : formatBytes(row.file.size)}
+                  </td>
+                  <td className="border-b border-border px-4 py-2.5 text-muted-foreground">
+                    {row.type === "folder" ? "—" : formatDate(row.file.lastModified)}
+                  </td>
+                  <td className="border-b border-border px-4 py-2.5 text-muted-foreground">
+                    {row.type === "folder" ? "Folder" : (row.file.storageClass ?? "Standard")}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr
-                    key={row.type === "folder" ? row.folder.prefix : row.file.key}
-                    className="bg-background"
-                  >
-                    <td className="border-b border-border px-4 py-3">
-                      {row.type === "folder" ? (
-                        <button
-                          type="button"
-                          className="flex min-w-0 items-center gap-3 text-left font-medium text-primary hover:underline"
-                          disabled={isBusy}
-                          onClick={() => void handlePathOpen(row.folder.prefix)}
-                        >
-                          <Folder className="size-4 shrink-0" />
-                          <span className="truncate">{row.name}/</span>
-                        </button>
-                      ) : (
-                        <div className="flex min-w-0 items-center gap-3">
-                          <File className="size-4 shrink-0 text-muted-foreground" />
-                          <span className="truncate font-medium">{row.name}</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="border-b border-border px-4 py-3 text-muted-foreground">
-                      {row.type === "folder" ? "—" : formatBytes(row.file.size)}
-                    </td>
-                    <td className="border-b border-border px-4 py-3 text-muted-foreground">
-                      {row.type === "folder" ? "—" : formatDate(row.file.lastModified)}
-                    </td>
-                    <td className="border-b border-border px-4 py-3 text-muted-foreground">
-                      {row.type === "folder" ? "Folder" : (row.file.storageClass ?? "Standard")}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function EmptyExplorerState({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: typeof FolderOpen;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="rounded-xl border border-dashed border-border bg-background p-8 text-center">
-      <Icon className="mx-auto mb-4 size-8 text-muted-foreground" />
-      <h3 className="text-lg font-semibold">{title}</h3>
-      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-    </div>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </section>
   );
 }
 
