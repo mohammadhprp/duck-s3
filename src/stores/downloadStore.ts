@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import { downloadFolder, downloadObject, listenDownloadProgress } from "@/services/s3/download";
 import { openInFinder } from "@/services/s3/download";
-import { invoke } from "@tauri-apps/api/core";
+import { useFileOpNotificationStore } from "@/stores/fileOpNotificationStore";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import type { ConnectionProfile } from "@/types/connection";
 import type { DownloadJob, DownloadSelection } from "@/types/download";
@@ -183,6 +183,8 @@ async function downloadJob(job: DownloadJob) {
   const controller = new AbortController();
   downloadControllers.set(job.id, controller);
 
+  let notifId: string | null = null;
+
   try {
     const defaultFileName = job.isFolder
       ? job.key.split("/").filter(Boolean).pop() || "folder"
@@ -213,41 +215,76 @@ async function downloadJob(job: DownloadJob) {
       ),
     }));
 
+    notifId = useFileOpNotificationStore.getState().addNotification({
+      message: job.isFolder
+        ? `Downloading folder "${defaultFileName}"...`
+        : `Downloading "${defaultFileName}"...`,
+      status: "running",
+      progress: 0,
+      canCancel: true,
+      metadata: {
+        source: "download",
+        jobId: job.id,
+        profileId: job.profile.id,
+      },
+    });
+
+    const expectedEventId = job.isFolder
+      ? `folder:${job.bucketName}:${job.key}`
+      : `${job.bucketName}:${job.key}`;
+
     const unlisten = await listenDownloadProgress((event) => {
-      const expectedId = job.isFolder
-        ? `folder:${job.bucketName}:${job.key}`
-        : `${job.bucketName}:${job.key}`;
+      if (event.id !== expectedEventId) return;
 
-      if (event.id === expectedId) {
-        useDownloadStore.setState((state) => ({
-          jobs: state.jobs.map((candidate) => {
-            if (candidate.id !== job.id) return candidate;
+      const progress =
+        event.total_bytes > 0 ? Math.round((event.downloaded_bytes / event.total_bytes) * 100) : 0;
 
-            const progress =
-              event.total_bytes > 0
-                ? Math.round((event.downloaded_bytes / event.total_bytes) * 100)
-                : candidate.progress;
+      useDownloadStore.setState((state) => ({
+        jobs: state.jobs.map((candidate) => {
+          if (candidate.id !== job.id) return candidate;
 
-            return {
-              ...candidate,
-              downloadedBytes: event.downloaded_bytes,
-              totalBytes: event.total_bytes,
-              progress,
-              status:
-                event.status === "completed"
-                  ? "completed"
-                  : event.status === "failed"
-                    ? "failed"
-                    : candidate.status,
-              destinationPath: event.destination_path || candidate.destinationPath,
-              error: event.error ?? candidate.error,
-              completedAt:
-                event.status === "completed" || event.status === "failed"
-                  ? Date.now()
-                  : candidate.completedAt,
-            };
-          }),
-        }));
+          return {
+            ...candidate,
+            downloadedBytes: event.downloaded_bytes,
+            totalBytes: event.total_bytes,
+            progress,
+            status:
+              event.status === "completed"
+                ? "completed"
+                : event.status === "failed"
+                  ? "failed"
+                  : candidate.status,
+            destinationPath: event.destination_path || candidate.destinationPath,
+            error: event.error ?? candidate.error,
+            completedAt:
+              event.status === "completed" || event.status === "failed"
+                ? Date.now()
+                : candidate.completedAt,
+          };
+        }),
+      }));
+
+      if (notifId) {
+        useFileOpNotificationStore.getState().updateNotification(notifId, { progress });
+      }
+
+      if (event.status === "completed" && notifId) {
+        useFileOpNotificationStore.getState().updateNotification(notifId, {
+          message: `Downloaded "${defaultFileName}"`,
+          status: "success",
+          canCancel: false,
+          canOpenInFinder: true,
+          destinationPath: event.destination_path || basePath,
+        });
+      }
+
+      if (event.status === "failed" && notifId) {
+        useFileOpNotificationStore.getState().updateNotification(notifId, {
+          message: `Failed to download "${defaultFileName}"`,
+          status: "error",
+          canCancel: false,
+          canRetry: true,
+        });
       }
     });
 
@@ -272,9 +309,18 @@ async function downloadJob(job: DownloadJob) {
       ),
       lastMessage: "Download completed.",
     }));
+
+    if (notifId) {
+      useFileOpNotificationStore.getState().updateNotification(notifId, {
+        message: `Downloaded "${defaultFileName}"`,
+        status: "success",
+        canCancel: false,
+        canOpenInFinder: true,
+        destinationPath: basePath,
+      });
+    }
   } catch (error) {
     const errorMessage = getDownloadErrorMessage(error);
-    console.error("Download failed:", error);
 
     useDownloadStore.setState((state) => ({
       jobs: state.jobs.map((candidate) =>
@@ -291,6 +337,19 @@ async function downloadJob(job: DownloadJob) {
         ? "Download canceled."
         : `Download failed: ${errorMessage}`,
     }));
+
+    if (notifId) {
+      if (controller.signal.aborted) {
+        useFileOpNotificationStore.getState().removeNotification(notifId);
+      } else {
+        useFileOpNotificationStore.getState().updateNotification(notifId, {
+          message: `Failed to download "${defaultFileName}"`,
+          status: "error",
+          canCancel: false,
+          canRetry: true,
+        });
+      }
+    }
   } finally {
     downloadControllers.delete(job.id);
     useDownloadStore.setState((state) => ({

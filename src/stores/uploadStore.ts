@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { isUploadAbortError, uploadFileMultipart } from "@/services/s3/upload";
+import { useFileOpNotificationStore } from "@/stores/fileOpNotificationStore";
 import type { ConnectionProfile } from "@/types/connection";
 import type { UploadJob, UploadSelection } from "@/types/upload";
 
@@ -159,6 +160,15 @@ async function uploadJob(job: UploadJob) {
   const controller = new AbortController();
   uploadControllers.set(job.id, controller);
 
+  const fileName = job.key.split("/").pop() || job.key;
+  const notifId = useFileOpNotificationStore.getState().addNotification({
+    message: `Uploading "${fileName}"...`,
+    status: "running",
+    progress: 0,
+    canCancel: true,
+    metadata: { source: "upload", jobId: job.id, profileId: job.profile.id },
+  });
+
   try {
     await uploadFileMultipart({
       profile: job.profile,
@@ -174,18 +184,15 @@ async function uploadJob(job: UploadJob) {
         }));
       },
       onProgress(uploadedBytes, totalBytes) {
+        const progress = totalBytes === 0 ? 100 : Math.round((uploadedBytes / totalBytes) * 100);
         useUploadStore.setState((state) => ({
           jobs: state.jobs.map((candidate) =>
             candidate.id === job.id
-              ? {
-                  ...candidate,
-                  uploadedBytes,
-                  totalBytes,
-                  progress: totalBytes === 0 ? 100 : Math.round((uploadedBytes / totalBytes) * 100),
-                }
+              ? { ...candidate, uploadedBytes, totalBytes, progress }
               : candidate,
           ),
         }));
+        useFileOpNotificationStore.getState().updateNotification(notifId, { progress });
       },
     });
 
@@ -203,20 +210,36 @@ async function uploadJob(job: UploadJob) {
       ),
       lastMessage: "Upload completed.",
     }));
+    useFileOpNotificationStore.getState().updateNotification(notifId, {
+      message: `Uploaded "${fileName}"`,
+      status: "success",
+      canCancel: false,
+    });
   } catch (error) {
+    const aborted = isUploadAbortError(error);
     useUploadStore.setState((state) => ({
       jobs: state.jobs.map((candidate) =>
         candidate.id === job.id
           ? {
               ...candidate,
-              status: isUploadAbortError(error) ? "canceled" : "failed",
+              status: aborted ? "canceled" : "failed",
               error: getUploadErrorMessage(error),
               completedAt: Date.now(),
             }
           : candidate,
       ),
-      lastMessage: isUploadAbortError(error) ? "Upload canceled." : "Upload failed.",
+      lastMessage: aborted ? "Upload canceled." : "Upload failed.",
     }));
+    if (aborted) {
+      useFileOpNotificationStore.getState().removeNotification(notifId);
+    } else {
+      useFileOpNotificationStore.getState().updateNotification(notifId, {
+        message: `Failed to upload "${fileName}"`,
+        status: "error",
+        canCancel: false,
+        canRetry: true,
+      });
+    }
   } finally {
     uploadControllers.delete(job.id);
     useUploadStore.setState((state) => ({ activeCount: Math.max(0, state.activeCount - 1) }));

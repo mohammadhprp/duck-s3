@@ -5,7 +5,7 @@ import { useObjectExplorerStore } from "@/stores/objectExplorerStore";
 import { ConnectionSidebar } from "@/features/connections/ConnectionSidebar";
 import { BucketPanel } from "@/features/buckets/BucketPanel";
 import { ObjectExplorer } from "@/features/explorer/ObjectExplorer";
-import { DownloadPanel } from "@/features/explorer/DownloadPanel";
+import { FileOpNotifications } from "@/features/explorer/FileOpNotifications";
 
 function App() {
   const { activeProfileId, hydrated, hydrate, profiles } = useConnectionStore();
@@ -47,7 +47,7 @@ function App() {
           <ObjectExplorer />
         </div>
       </div>
-      <DownloadPanel />
+      <FileOpNotifications />
     </main>
   );
 }

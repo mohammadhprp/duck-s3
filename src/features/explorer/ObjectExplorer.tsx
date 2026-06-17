@@ -35,6 +35,7 @@ import type {
 } from "@/types/object";
 import { UploadTrigger } from "./UploadTrigger";
 import { FolderPickerDialog } from "./FolderPickerDialog";
+import { useFileOpNotificationStore } from "@/stores/fileOpNotificationStore";
 
 type ExplorerRow =
   | { type: "folder"; folder: S3ObjectFolder; name: string }
@@ -53,7 +54,6 @@ const sortLabels: Record<ObjectExplorerSortField, string> = {
   name: "Name",
   size: "Size",
   lastModified: "Last Modified",
-  storageClass: "Storage Class",
 };
 
 export function ObjectExplorer() {
@@ -69,6 +69,7 @@ export function ObjectExplorer() {
   const [promptValue, setPromptValue] = useState("");
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [folderPickerFor, setFolderPickerFor] = useState<"move" | "copy" | null>(null);
+  const { addNotification, updateNotification } = useFileOpNotificationStore();
   const menuRef = useRef<HTMLDivElement>(null);
 
   const activeProfile = useMemo(
@@ -187,7 +188,11 @@ export function ObjectExplorer() {
   async function handleConfirmDelete() {
     if (dialog.type !== "confirmDelete") return;
 
-    const { key, isFolder } = dialog;
+    const { key, name, isFolder } = dialog;
+    const notifId = addNotification({
+      message: `Deleting ${isFolder ? "folder" : "file"} "${name}"...`,
+      status: "running",
+    });
     setDialog({ type: "none" });
     setActiveMenu(null);
 
@@ -208,16 +213,27 @@ export function ObjectExplorer() {
         next.delete(key);
         return next;
       });
+      updateNotification(notifId, {
+        message: `Deleted ${isFolder ? "folder" : "file"} "${name}"`,
+        status: "success",
+      });
       await refreshCurrentPath(activeProfile);
-    } catch (error) {
-      console.error("Delete failed:", error);
+    } catch {
+      updateNotification(notifId, {
+        message: `Failed to delete "${name}"`,
+        status: "error",
+      });
     }
   }
 
   async function handleConfirmBulkDelete() {
     if (dialog.type !== "confirmBulkDelete") return;
 
-    const { keys } = dialog;
+    const { keys, count } = dialog;
+    const notifId = addNotification(
+      `Deleting ${count} object${count === 1 ? "" : "s"}...`,
+      "running",
+    );
     setDialog({ type: "none" });
 
     if (!activeProfile || !currentBucketName) return;
@@ -225,9 +241,16 @@ export function ObjectExplorer() {
     try {
       await deleteObjects(activeProfile, currentBucketName, keys);
       setSelectedKeys(new Set());
+      updateNotification(notifId, {
+        message: `Deleted ${count} object${count === 1 ? "" : "s"}`,
+        status: "success",
+      });
       await refreshCurrentPath(activeProfile);
-    } catch (error) {
-      console.error("Bulk delete failed:", error);
+    } catch {
+      updateNotification(notifId, {
+        message: `Failed to delete ${count} object${count === 1 ? "" : "s"}`,
+        status: "error",
+      });
     }
   }
 
@@ -236,6 +259,9 @@ export function ObjectExplorer() {
 
     const newName = promptValue.trim();
     if (!newName) return;
+
+    const { name } = dialog;
+    const notifId = addNotification({ message: `Renaming "${name}"...`, status: "running" });
 
     const oldKey = dialog.key;
     const prefix = oldKey.includes("/") ? oldKey.substring(0, oldKey.lastIndexOf("/") + 1) : "";
@@ -255,9 +281,16 @@ export function ObjectExplorer() {
         next.delete(oldKey);
         return next;
       });
+      updateNotification(notifId, {
+        message: `Renamed "${name}" to "${newName}"`,
+        status: "success",
+      });
       await refreshCurrentPath(activeProfile);
-    } catch (error) {
-      console.error("Rename failed:", error);
+    } catch {
+      updateNotification(notifId, {
+        message: `Failed to rename "${name}"`,
+        status: "error",
+      });
     }
   }
 
@@ -266,6 +299,9 @@ export function ObjectExplorer() {
 
     const targetPrefix = promptValue.trim().replace(/\/?$/, "/");
     if (!targetPrefix) return;
+
+    const { name } = dialog;
+    const notifId = addNotification({ message: `Moving "${name}"...`, status: "running" });
 
     const oldKey = dialog.key;
     const fileName = oldKey.split("/").pop() || "";
@@ -285,9 +321,16 @@ export function ObjectExplorer() {
         next.delete(oldKey);
         return next;
       });
+      updateNotification(notifId, {
+        message: `Moved "${name}" to "${targetPrefix}"`,
+        status: "success",
+      });
       await refreshCurrentPath(activeProfile);
-    } catch (error) {
-      console.error("Move failed:", error);
+    } catch {
+      updateNotification(notifId, {
+        message: `Failed to move "${name}"`,
+        status: "error",
+      });
     }
   }
 
@@ -296,6 +339,9 @@ export function ObjectExplorer() {
 
     const targetPrefix = promptValue.trim().replace(/\/?$/, "/");
     if (!targetPrefix) return;
+
+    const { name } = dialog;
+    const notifId = addNotification({ message: `Copying "${name}"...`, status: "running" });
 
     const fileName = dialog.key.split("/").pop() || "";
     const targetKey = `${targetPrefix}${fileName}`;
@@ -308,9 +354,16 @@ export function ObjectExplorer() {
 
     try {
       await copyObject(activeProfile, currentBucketName, dialog.key, currentBucketName, targetKey);
+      updateNotification(notifId, {
+        message: `Copied "${name}" to "${targetPrefix}"`,
+        status: "success",
+      });
       await refreshCurrentPath(activeProfile);
-    } catch (error) {
-      console.error("Copy failed:", error);
+    } catch {
+      updateNotification(notifId, {
+        message: `Failed to copy "${name}"`,
+        status: "error",
+      });
     }
   }
 
@@ -320,6 +373,11 @@ export function ObjectExplorer() {
     const folderName = promptValue.trim();
     if (!folderName) return;
 
+    const notifId = addNotification({
+      message: `Creating folder "${folderName}"...`,
+      status: "running",
+    });
+
     setDialog({ type: "none" });
     setPromptValue("");
 
@@ -327,9 +385,16 @@ export function ObjectExplorer() {
 
     try {
       await createFolder(activeProfile, currentBucketName, `${currentPrefix}${folderName}`);
+      updateNotification(notifId, {
+        message: `Created folder "${folderName}"`,
+        status: "success",
+      });
       await refreshCurrentPath(activeProfile);
-    } catch (error) {
-      console.error("Create folder failed:", error);
+    } catch {
+      updateNotification(notifId, {
+        message: `Failed to create folder "${folderName}"`,
+        status: "error",
+      });
     }
   }
 
@@ -569,7 +634,7 @@ export function ObjectExplorer() {
                     disabled={isBusy}
                   />
                 </th>
-                {(["name", "size", "lastModified", "storageClass"] as const).map((field) => (
+                {(["name", "size", "lastModified"] as const).map((field) => (
                   <th key={field} className="border-b border-border px-4 py-2.5 font-medium">
                     <button
                       type="button"
@@ -626,9 +691,6 @@ export function ObjectExplorer() {
                     </td>
                     <td className="border-b border-border px-4 py-2.5 text-muted-foreground">
                       {row.type === "folder" ? "\u2014" : formatDate(row.file.lastModified)}
-                    </td>
-                    <td className="border-b border-border px-4 py-2.5 text-muted-foreground">
-                      {row.type === "folder" ? "Folder" : (row.file.storageClass ?? "Standard")}
                     </td>
                     <td className="border-b border-border px-4 py-2.5">
                       <div className="relative flex items-center gap-1">

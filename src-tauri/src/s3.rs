@@ -773,9 +773,7 @@ pub async fn s3_list_all_keys(
 
         for object in output.contents() {
             if let Some(key) = object.key() {
-                if !key.ends_with('/') {
-                    keys.push(key.to_string());
-                }
+                keys.push(key.to_string());
             }
         }
 
