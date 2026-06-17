@@ -438,6 +438,68 @@ pub struct S3ObjectInfo {
     pub last_modified: Option<String>,
 }
 
+const PREVIEW_SIZE_LIMIT: usize = 50 * 1024 * 1024;
+
+#[derive(Debug, Serialize)]
+pub struct S3ObjectBody {
+    pub content_type: String,
+    pub body_base64: String,
+    pub size: usize,
+}
+
+#[tauri::command]
+pub async fn s3_get_object_body(
+    profile: S3Profile,
+    bucket_name: String,
+    key: String,
+) -> Result<S3ObjectBody, String> {
+    let client = build_s3_client(&profile);
+
+    let head = client
+        .head_object()
+        .bucket(&bucket_name)
+        .key(&key)
+        .send()
+        .await
+        .map_err(|e| format!("S3 error: {e:?}"))?;
+
+    let size = head.content_length().unwrap_or(0) as usize;
+    let content_type = head
+        .content_type()
+        .map(ToString::to_string)
+        .unwrap_or_else(|| "application/octet-stream".to_string());
+
+    if size > PREVIEW_SIZE_LIMIT {
+        return Err(format!(
+            "File too large for preview ({size} bytes). Maximum is {PREVIEW_SIZE_LIMIT} bytes."
+        ));
+    }
+
+    let output = client
+        .get_object()
+        .bucket(&bucket_name)
+        .key(&key)
+        .send()
+        .await
+        .map_err(|e| format!("S3 error: {e:?}"))?;
+
+    let data = output
+        .body
+        .collect()
+        .await
+        .map_err(|e| format!("Failed to read body: {e:?}"))?
+        .into_bytes();
+
+    use base64::Engine;
+    let body_base64 = base64::engine::general_purpose::STANDARD.encode(&data);
+
+    Ok(S3ObjectBody {
+        content_type,
+        body_base64,
+        size,
+    })
+}
+
 #[tauri::command]
 pub async fn s3_get_object_info(
     profile: S3Profile,

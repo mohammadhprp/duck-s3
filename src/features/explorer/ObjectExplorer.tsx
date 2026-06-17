@@ -3,6 +3,7 @@ import {
   ArrowUpDown,
   ChevronRight,
   File,
+  FileSymlink,
   Folder,
   FolderOpen,
   RefreshCw,
@@ -35,7 +36,9 @@ import type {
 } from "@/types/object";
 import { UploadTrigger } from "./UploadTrigger";
 import { FolderPickerDialog } from "./FolderPickerDialog";
+import { PreviewModal } from "./PreviewModal";
 import { useFileOpNotificationStore } from "@/stores/fileOpNotificationStore";
+import { usePreviewStore } from "@/stores/previewStore";
 
 type ExplorerRow =
   | { type: "folder"; folder: S3ObjectFolder; name: string }
@@ -70,6 +73,7 @@ export function ObjectExplorer() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [folderPickerFor, setFolderPickerFor] = useState<"move" | "copy" | null>(null);
   const { addNotification, updateNotification } = useFileOpNotificationStore();
+  const { openPreview, loadContent: loadPreviewContent } = usePreviewStore();
   const menuRef = useRef<HTMLDivElement>(null);
 
   const activeProfile = useMemo(
@@ -680,10 +684,20 @@ export function ObjectExplorer() {
                           <span className="truncate">{row.name}</span>
                         </button>
                       ) : (
-                        <div className="flex min-w-0 items-center gap-2">
+                        <button
+                          type="button"
+                          className="flex min-w-0 items-center gap-2 text-left hover:underline"
+                          disabled={isBusy}
+                          onClick={() => {
+                            openPreview({ key: row.file.key, name: row.name });
+                            if (activeProfile && currentBucketName) {
+                              void loadPreviewContent(activeProfile, currentBucketName);
+                            }
+                          }}
+                        >
                           <File className="size-4 shrink-0 text-muted-foreground" />
                           <span className="truncate font-medium">{row.name}</span>
-                        </div>
+                        </button>
                       )}
                     </td>
                     <td className="border-b border-border px-4 py-2.5 text-muted-foreground">
@@ -747,6 +761,18 @@ export function ObjectExplorer() {
                                   ref={menuRef}
                                   className="absolute right-0 top-full z-20 w-36 rounded-md border border-border bg-background py-1 shadow-xl"
                                 >
+                                  <button
+                                    type="button"
+                                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-accent"
+                                    onClick={() => {
+                                      openPreview({ key: row.file.key, name: row.name });
+                                      if (activeProfile && currentBucketName) {
+                                        void loadPreviewContent(activeProfile, currentBucketName);
+                                      }
+                                    }}
+                                  >
+                                    <FileSymlink className="size-3" /> Preview
+                                  </button>
                                   <button
                                     type="button"
                                     className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-accent"
@@ -931,6 +957,7 @@ export function ObjectExplorer() {
           }}
         />
       )}
+      <PreviewModal />
     </section>
   );
 }

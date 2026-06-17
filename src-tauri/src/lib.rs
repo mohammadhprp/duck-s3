@@ -16,6 +16,7 @@ pub fn run() {
             s3::s3_abort_multipart_upload,
             s3::s3_test_connection,
             s3::s3_get_object_info,
+            s3::s3_get_object_body,
             s3::s3_download_object,
             s3::s3_download_folder,
             s3::s3_delete_object,

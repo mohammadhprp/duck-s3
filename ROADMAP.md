@@ -331,19 +331,21 @@ Preview common files.
 
 ## MVP Preview Types
 
-* [ ] Images
-* [ ] JSON
-* [ ] Text
-* [ ] PDF
+* [x] Images
+* [x] JSON
+* [x] Text
+* [x] PDF
 * [ ] Markdown
 
 ---
 
 ## Technical Tasks
 
-* [ ] Signed URLs
-* [ ] Temporary downloads
-* [ ] Preview modal
+* [x] S3 GetObject body streaming (via Tauri command)
+* [x] Base64 encoding & transfer
+* [x] Preview modal
+* [x] Single-click file preview
+* [ ] Markdown rendering
 
 ---
 
