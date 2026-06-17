@@ -51,8 +51,9 @@ jobs:
       - name: Install frontend dependencies
         run: |
           for i in 1 2 3; do
-            timeout 180 bun install --frozen-lockfile && break
+            bun install && break
             echo "bun install attempt $i failed, retrying..."
+            sleep 5
           done
 
       - uses: tauri-apps/tauri-action@v0
