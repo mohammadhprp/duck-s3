@@ -164,6 +164,103 @@ export async function listObjects(
   return fromTauriObjectPage(page);
 }
 
+interface TauriDeleteObjectsResult {
+  deleted: string[];
+  errors: string[];
+}
+
+export async function deleteObject(
+  profile: ConnectionProfileInput,
+  bucketName: string,
+  key: string,
+): Promise<void> {
+  if (!isTauri()) {
+    throw new Error("S3 operations require running inside Tauri. Use `bun run tauri dev`.");
+  }
+
+  await invoke("s3_delete_object", {
+    profile: toTauriProfile(profile),
+    bucketName,
+    key,
+  });
+}
+
+export async function deleteObjects(
+  profile: ConnectionProfileInput,
+  bucketName: string,
+  keys: string[],
+): Promise<{ deleted: string[]; errors: string[] }> {
+  if (!isTauri()) {
+    throw new Error("S3 operations require running inside Tauri. Use `bun run tauri dev`.");
+  }
+
+  const result = await invoke<TauriDeleteObjectsResult>("s3_delete_objects", {
+    profile: toTauriProfile(profile),
+    bucketName,
+    keys,
+  });
+
+  return { deleted: result.deleted, errors: result.errors };
+}
+
+interface TauriListAllKeysResult {
+  keys: string[];
+}
+
+export async function listAllKeys(
+  profile: ConnectionProfileInput,
+  bucketName: string,
+  prefix: string,
+): Promise<string[]> {
+  if (!isTauri()) {
+    throw new Error("S3 operations require running inside Tauri. Use `bun run tauri dev`.");
+  }
+
+  const result = await invoke<TauriListAllKeysResult>("s3_list_all_keys", {
+    profile: toTauriProfile(profile),
+    bucketName,
+    prefix,
+  });
+
+  return result.keys;
+}
+
+export async function copyObject(
+  profile: ConnectionProfileInput,
+  sourceBucket: string,
+  sourceKey: string,
+  destinationBucket: string,
+  destinationKey: string,
+): Promise<void> {
+  if (!isTauri()) {
+    throw new Error("S3 operations require running inside Tauri. Use `bun run tauri dev`.");
+  }
+
+  await invoke("s3_copy_object", {
+    profile: toTauriProfile(profile),
+    sourceBucket,
+    sourceKey,
+    destinationBucket,
+    destinationKey,
+  });
+}
+
+export async function createFolder(
+  profile: ConnectionProfileInput,
+  bucketName: string,
+  prefix: string,
+): Promise<void> {
+  if (!isTauri()) {
+    throw new Error("S3 operations require running inside Tauri. Use `bun run tauri dev`.");
+  }
+
+  await invoke("s3_create_folder", {
+    profile: toTauriProfile(profile),
+    bucketName,
+    prefix,
+  });
+}
+
 export async function testS3Connection(
   profile: ConnectionProfileInput,
 ): Promise<ConnectionTestResult> {

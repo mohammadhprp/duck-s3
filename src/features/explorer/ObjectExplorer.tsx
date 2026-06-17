@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ArrowUpDown,
   ChevronRight,
@@ -9,12 +9,24 @@ import {
   Search,
   ArrowLeft,
   Download,
+  Trash2,
+  Pencil,
+  Copy,
+  FolderPlus,
+  MoreHorizontal,
 } from "lucide-react";
 
 import { Button } from "@cloudflare/kumo/components/button";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useObjectExplorerStore } from "@/stores/objectExplorerStore";
 import { useDownloadStore } from "@/stores/downloadStore";
+import {
+  deleteObject,
+  deleteObjects,
+  copyObject,
+  createFolder,
+  listAllKeys,
+} from "@/services/s3/client";
 import type {
   ObjectExplorerSortDirection,
   ObjectExplorerSortField,
@@ -22,10 +34,20 @@ import type {
   S3ObjectFolder,
 } from "@/types/object";
 import { UploadTrigger } from "./UploadTrigger";
+import { FolderPickerDialog } from "./FolderPickerDialog";
 
 type ExplorerRow =
   | { type: "folder"; folder: S3ObjectFolder; name: string }
   | { type: "file"; file: S3ObjectFile; name: string };
+
+type DialogState =
+  | { type: "none" }
+  | { type: "confirmDelete"; key: string; name: string; isFolder: boolean }
+  | { type: "confirmBulkDelete"; keys: string[]; count: number }
+  | { type: "rename"; key: string; name: string }
+  | { type: "move"; key: string; name: string }
+  | { type: "copy"; key: string; name: string }
+  | { type: "createFolder" };
 
 const sortLabels: Record<ObjectExplorerSortField, string> = {
   name: "Name",
@@ -42,6 +64,12 @@ export function ObjectExplorer() {
   const [objectSearchTerm, setObjectSearchTerm] = useState("");
   const [sortField, setSortField] = useState<ObjectExplorerSortField>("name");
   const [sortDirection, setSortDirection] = useState<ObjectExplorerSortDirection>("asc");
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [dialog, setDialog] = useState<DialogState>({ type: "none" });
+  const [promptValue, setPromptValue] = useState("");
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [folderPickerFor, setFolderPickerFor] = useState<"move" | "copy" | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const activeProfile = useMemo(
     () => profiles.find((profile) => profile.id === activeProfileId),
@@ -71,6 +99,36 @@ export function ObjectExplorer() {
   const breadcrumbItems = useMemo(() => buildBreadcrumbItems(currentPrefix), [currentPrefix]);
   const isBusy = status === "loading";
 
+  const allKeysOnPage = useMemo(() => {
+    const keys: string[] = [];
+    for (const row of rows) {
+      keys.push(row.type === "folder" ? row.folder.prefix : row.file.key);
+    }
+    return keys;
+  }, [rows]);
+
+  const allSelected = allKeysOnPage.length > 0 && allKeysOnPage.every((k) => selectedKeys.has(k));
+
+  function toggleSelect(key: string) {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelectedKeys(new Set());
+    } else {
+      setSelectedKeys(new Set(allKeysOnPage));
+    }
+  }
+
   function handleSort(nextSortField: ObjectExplorerSortField) {
     if (sortField === nextSortField) {
       setSortDirection((currentDirection) => (currentDirection === "asc" ? "desc" : "asc"));
@@ -87,6 +145,7 @@ export function ObjectExplorer() {
     }
 
     setObjectSearchTerm("");
+    setSelectedKeys(new Set());
     await openPath(activeProfile, currentBucketName, prefix);
   }
 
@@ -125,6 +184,207 @@ export function ObjectExplorer() {
     });
   }
 
+  async function handleConfirmDelete() {
+    if (dialog.type !== "confirmDelete") return;
+
+    const { key, isFolder } = dialog;
+    setDialog({ type: "none" });
+    setActiveMenu(null);
+
+    if (!activeProfile || !currentBucketName) return;
+
+    try {
+      if (isFolder) {
+        const keys = await listAllKeys(activeProfile, currentBucketName, key);
+        if (keys.length > 0) {
+          await deleteObjects(activeProfile, currentBucketName, keys);
+        }
+        await deleteObject(activeProfile, currentBucketName, key);
+      } else {
+        await deleteObject(activeProfile, currentBucketName, key);
+      }
+      setSelectedKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+      await refreshCurrentPath(activeProfile);
+    } catch (error) {
+      console.error("Delete failed:", error);
+    }
+  }
+
+  async function handleConfirmBulkDelete() {
+    if (dialog.type !== "confirmBulkDelete") return;
+
+    const { keys } = dialog;
+    setDialog({ type: "none" });
+
+    if (!activeProfile || !currentBucketName) return;
+
+    try {
+      await deleteObjects(activeProfile, currentBucketName, keys);
+      setSelectedKeys(new Set());
+      await refreshCurrentPath(activeProfile);
+    } catch (error) {
+      console.error("Bulk delete failed:", error);
+    }
+  }
+
+  async function handleConfirmRename() {
+    if (dialog.type !== "rename") return;
+
+    const newName = promptValue.trim();
+    if (!newName) return;
+
+    const oldKey = dialog.key;
+    const prefix = oldKey.includes("/") ? oldKey.substring(0, oldKey.lastIndexOf("/") + 1) : "";
+    const newKey = `${prefix}${newName}`;
+
+    setDialog({ type: "none" });
+    setPromptValue("");
+    setActiveMenu(null);
+
+    if (!activeProfile || !currentBucketName) return;
+
+    try {
+      await copyObject(activeProfile, currentBucketName, oldKey, currentBucketName, newKey);
+      await deleteObject(activeProfile, currentBucketName, oldKey);
+      setSelectedKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(oldKey);
+        return next;
+      });
+      await refreshCurrentPath(activeProfile);
+    } catch (error) {
+      console.error("Rename failed:", error);
+    }
+  }
+
+  async function handleConfirmMove() {
+    if (dialog.type !== "move") return;
+
+    const targetPrefix = promptValue.trim().replace(/\/?$/, "/");
+    if (!targetPrefix) return;
+
+    const oldKey = dialog.key;
+    const fileName = oldKey.split("/").pop() || "";
+    const newKey = `${targetPrefix}${fileName}`;
+
+    setDialog({ type: "none" });
+    setPromptValue("");
+    setActiveMenu(null);
+
+    if (!activeProfile || !currentBucketName) return;
+
+    try {
+      await copyObject(activeProfile, currentBucketName, oldKey, currentBucketName, newKey);
+      await deleteObject(activeProfile, currentBucketName, oldKey);
+      setSelectedKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(oldKey);
+        return next;
+      });
+      await refreshCurrentPath(activeProfile);
+    } catch (error) {
+      console.error("Move failed:", error);
+    }
+  }
+
+  async function handleConfirmCopy() {
+    if (dialog.type !== "copy") return;
+
+    const targetPrefix = promptValue.trim().replace(/\/?$/, "/");
+    if (!targetPrefix) return;
+
+    const fileName = dialog.key.split("/").pop() || "";
+    const targetKey = `${targetPrefix}${fileName}`;
+
+    setDialog({ type: "none" });
+    setPromptValue("");
+    setActiveMenu(null);
+
+    if (!activeProfile || !currentBucketName) return;
+
+    try {
+      await copyObject(activeProfile, currentBucketName, dialog.key, currentBucketName, targetKey);
+      await refreshCurrentPath(activeProfile);
+    } catch (error) {
+      console.error("Copy failed:", error);
+    }
+  }
+
+  async function handleConfirmCreateFolder() {
+    if (dialog.type !== "createFolder") return;
+
+    const folderName = promptValue.trim();
+    if (!folderName) return;
+
+    setDialog({ type: "none" });
+    setPromptValue("");
+
+    if (!activeProfile || !currentBucketName) return;
+
+    try {
+      await createFolder(activeProfile, currentBucketName, `${currentPrefix}${folderName}`);
+      await refreshCurrentPath(activeProfile);
+    } catch (error) {
+      console.error("Create folder failed:", error);
+    }
+  }
+
+  function handleBulkDelete() {
+    const keys = Array.from(selectedKeys);
+    if (keys.length === 0) return;
+    setDialog({ type: "confirmBulkDelete", keys, count: keys.length });
+  }
+
+  let dialogTitle = "";
+  let dialogDescription = "";
+  let dialogPlaceholder = "";
+  let dialogButtonLabel = "";
+  let showInput = false;
+  let isDestructive = false;
+
+  switch (dialog.type) {
+    case "confirmDelete":
+      dialogTitle = `Delete ${dialog.isFolder ? "folder" : "file"}`;
+      dialogDescription = `Are you sure you want to delete "${dialog.name}"?${dialog.isFolder ? " All objects inside this folder will be permanently removed." : ""}`;
+      dialogButtonLabel = "Delete";
+      isDestructive = true;
+      break;
+    case "confirmBulkDelete":
+      dialogTitle = "Delete selected objects";
+      dialogDescription = `Are you sure you want to delete ${dialog.count} selected object${dialog.count === 1 ? "" : "s"}? This cannot be undone.`;
+      dialogButtonLabel = `Delete ${dialog.count} object${dialog.count === 1 ? "" : "s"}`;
+      isDestructive = true;
+      break;
+    case "rename":
+      dialogTitle = "Rename object";
+      dialogDescription = `Enter a new name for "${dialog.name}".`;
+      dialogPlaceholder = dialog.name;
+      dialogButtonLabel = "Rename";
+      showInput = true;
+      break;
+    case "move":
+      dialogTitle = "Move object";
+      dialogDescription = `Choose a destination folder for "${dialog.name}".`;
+      dialogButtonLabel = "Move";
+      break;
+    case "copy":
+      dialogTitle = "Copy object";
+      dialogDescription = `Choose a destination folder for "${dialog.name}".`;
+      dialogButtonLabel = "Copy";
+      break;
+    case "createFolder":
+      dialogTitle = "Create folder";
+      dialogDescription = "Enter a name for the new folder.";
+      dialogPlaceholder = "Folder name";
+      dialogButtonLabel = "Create";
+      showInput = true;
+      break;
+  }
+
   if (!activeProfile) {
     return (
       <div className="flex flex-1 items-center justify-center p-6">
@@ -161,6 +421,17 @@ export function ObjectExplorer() {
             <h2 className="truncate text-lg font-semibold">{currentBucketName}</h2>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setPromptValue("");
+                setDialog({ type: "createFolder" });
+              }}
+            >
+              <FolderPlus className="mr-1.5 size-3.5" /> New folder
+            </Button>
             <UploadTrigger />
             <Button
               type="button"
@@ -229,15 +500,46 @@ export function ObjectExplorer() {
         </div>
       </div>
 
+      {selectedKeys.size > 0 && (
+        <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-2">
+          <span className="text-xs font-medium text-muted-foreground">
+            {selectedKeys.size} selected
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-destructive"
+            onClick={() => handleBulkDelete()}
+          >
+            <Trash2 className="mr-1 size-3" /> Delete
+          </Button>
+          <Button type="button" variant="ghost" size="sm" disabled title="Coming soon">
+            <Copy className="mr-1 size-3" /> Copy
+          </Button>
+          <Button type="button" variant="ghost" size="sm" disabled title="Coming soon">
+            <Folder className="mr-1 size-3" /> Move
+          </Button>
+          <div className="ml-auto">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedKeys(new Set())}
+            >
+              Clear selection
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 overflow-auto">
         {status === "loading" ? (
           <div className="flex flex-1 items-center justify-center p-8">
             <div className="text-center">
               <RefreshCw className="mx-auto mb-4 size-8 animate-spin text-muted-foreground" />
               <h3 className="text-sm font-semibold">Loading files...</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Fetching objects from S3
-              </p>
+              <p className="mt-1 text-xs text-muted-foreground">Fetching objects from S3</p>
             </div>
           </div>
         ) : rows.length === 0 ? (
@@ -258,6 +560,15 @@ export function ObjectExplorer() {
           <table className="w-full border-separate border-spacing-0 text-sm">
             <thead className="sticky top-0 bg-muted/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
+                <th className="w-10 border-b border-border px-2 py-2.5">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-primary"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    disabled={isBusy}
+                  />
+                </th>
                 {(["name", "size", "lastModified", "storageClass"] as const).map((field) => (
                   <th key={field} className="border-b border-border px-4 py-2.5 font-medium">
                     <button
@@ -274,61 +585,290 @@ export function ObjectExplorer() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={row.type === "folder" ? row.folder.prefix : row.file.key}
-                  className="bg-background transition hover:bg-accent/50"
-                >
-                  <td className="border-b border-border px-4 py-2.5">
-                    {row.type === "folder" ? (
-                      <button
-                        type="button"
-                        className="flex min-w-0 items-center gap-2 text-left font-medium text-primary hover:underline"
+              {rows.map((row) => {
+                const rowKey = row.type === "folder" ? row.folder.prefix : row.file.key;
+                const isSelected = selectedKeys.has(rowKey);
+
+                return (
+                  <tr
+                    key={rowKey}
+                    className={`bg-background transition hover:bg-accent/50 ${isSelected ? "bg-accent/30" : ""}`}
+                  >
+                    <td className="border-b border-border px-2 py-2.5">
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-primary"
+                        checked={isSelected}
+                        onChange={() => toggleSelect(rowKey)}
                         disabled={isBusy}
-                        onClick={() => void handlePathOpen(row.folder.prefix)}
-                      >
-                        <Folder className="size-4 shrink-0" />
-                        <span className="truncate">{row.name}</span>
-                      </button>
-                    ) : (
-                      <div className="flex min-w-0 items-center gap-2">
-                        <File className="size-4 shrink-0 text-muted-foreground" />
-                        <span className="truncate font-medium">{row.name}</span>
+                      />
+                    </td>
+                    <td className="border-b border-border px-4 py-2.5">
+                      {row.type === "folder" ? (
+                        <button
+                          type="button"
+                          className="flex min-w-0 items-center gap-2 text-left font-medium text-primary hover:underline"
+                          disabled={isBusy}
+                          onClick={() => void handlePathOpen(row.folder.prefix)}
+                        >
+                          <Folder className="size-4 shrink-0" />
+                          <span className="truncate">{row.name}</span>
+                        </button>
+                      ) : (
+                        <div className="flex min-w-0 items-center gap-2">
+                          <File className="size-4 shrink-0 text-muted-foreground" />
+                          <span className="truncate font-medium">{row.name}</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="border-b border-border px-4 py-2.5 text-muted-foreground">
+                      {row.type === "folder" ? "\u2014" : formatBytes(row.file.size)}
+                    </td>
+                    <td className="border-b border-border px-4 py-2.5 text-muted-foreground">
+                      {row.type === "folder" ? "\u2014" : formatDate(row.file.lastModified)}
+                    </td>
+                    <td className="border-b border-border px-4 py-2.5 text-muted-foreground">
+                      {row.type === "folder" ? "Folder" : (row.file.storageClass ?? "Standard")}
+                    </td>
+                    <td className="border-b border-border px-4 py-2.5">
+                      <div className="relative flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={isBusy}
+                          onClick={() =>
+                            row.type === "folder"
+                              ? handleDownloadFolder(row.folder)
+                              : handleDownloadFile(row.file)
+                          }
+                        >
+                          <Download className="size-3" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={isBusy}
+                          onClick={() =>
+                            setDialog({
+                              type: "confirmDelete",
+                              key: rowKey,
+                              name: row.name,
+                              isFolder: row.type === "folder",
+                            })
+                          }
+                        >
+                          <Trash2 className="size-3 text-destructive" />
+                        </Button>
+                        {row.type === "file" && (
+                          <>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={isBusy}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMenu(activeMenu === rowKey ? null : rowKey);
+                              }}
+                            >
+                              <MoreHorizontal className="size-3" />
+                            </Button>
+                            {activeMenu === rowKey && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-10"
+                                  onClick={() => setActiveMenu(null)}
+                                />
+                                <div
+                                  ref={menuRef}
+                                  className="absolute right-0 top-full z-20 w-36 rounded-md border border-border bg-background py-1 shadow-xl"
+                                >
+                                  <button
+                                    type="button"
+                                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-accent"
+                                    onClick={() => {
+                                      setDialog({ type: "rename", key: rowKey, name: row.name });
+                                      setPromptValue(row.name);
+                                    }}
+                                  >
+                                    <Pencil className="size-3" /> Rename
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-accent"
+                                    onClick={() => {
+                                      setDialog({ type: "copy", key: rowKey, name: row.name });
+                                      setPromptValue("");
+                                    }}
+                                  >
+                                    <Copy className="size-3" /> Copy
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-accent"
+                                    onClick={() => {
+                                      setDialog({ type: "move", key: rowKey, name: row.name });
+                                      setPromptValue("");
+                                    }}
+                                  >
+                                    <Folder className="size-3" /> Move
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </>
+                        )}
                       </div>
-                    )}
-                  </td>
-                  <td className="border-b border-border px-4 py-2.5 text-muted-foreground">
-                    {row.type === "folder" ? "—" : formatBytes(row.file.size)}
-                  </td>
-                  <td className="border-b border-border px-4 py-2.5 text-muted-foreground">
-                    {row.type === "folder" ? "—" : formatDate(row.file.lastModified)}
-                  </td>
-                  <td className="border-b border-border px-4 py-2.5 text-muted-foreground">
-                    {row.type === "folder" ? "Folder" : (row.file.storageClass ?? "Standard")}
-                  </td>
-                  <td className="border-b border-border px-4 py-2.5">
-                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        disabled={isBusy}
-                        onClick={() =>
-                          row.type === "folder"
-                            ? handleDownloadFolder(row.folder)
-                            : handleDownloadFile(row.file)
-                        }
-                      >
-                        <Download className="size-3" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
       </div>
+
+      {dialog.type !== "none" && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => {
+            setDialog({ type: "none" });
+            setPromptValue("");
+          }}
+        >
+          <div
+            className="w-full max-w-sm rounded-lg border border-border bg-background p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold">{dialogTitle}</h3>
+            <p className="mt-2 text-sm text-muted-foreground">{dialogDescription}</p>
+
+            {dialog.type === "move" || dialog.type === "copy" ? (
+              <div className="mt-3">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Destination folder
+                </label>
+                {promptValue ? (
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <code className="flex-1 truncate rounded-md border border-input bg-muted px-2 py-1.5 text-xs">
+                      {promptValue}
+                    </code>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPromptValue("")}
+                    >
+                      Change
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-1.5"
+                    onClick={() => setFolderPickerFor(dialog.type)}
+                  >
+                    <Folder className="mr-1.5 size-3.5" /> Browse folders...
+                  </Button>
+                )}
+                {promptValue && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Destination:{" "}
+                    <span className="font-mono">
+                      {promptValue}
+                      {dialog.name}
+                    </span>
+                  </p>
+                )}
+              </div>
+            ) : showInput ? (
+              <input
+                className="mt-3 h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+                placeholder={dialogPlaceholder}
+                value={promptValue}
+                onChange={(e) => setPromptValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    switch (dialog.type) {
+                      case "rename":
+                        void handleConfirmRename();
+                        break;
+                      case "createFolder":
+                        void handleConfirmCreateFolder();
+                        break;
+                    }
+                  }
+                }}
+                autoFocus
+              />
+            ) : null}
+
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setDialog({ type: "none" });
+                  setPromptValue("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={isDestructive ? "text-destructive" : ""}
+                onClick={() => {
+                  switch (dialog.type) {
+                    case "confirmDelete":
+                      void handleConfirmDelete();
+                      break;
+                    case "confirmBulkDelete":
+                      void handleConfirmBulkDelete();
+                      break;
+                    case "rename":
+                      void handleConfirmRename();
+                      break;
+                    case "move":
+                      void handleConfirmMove();
+                      break;
+                    case "copy":
+                      void handleConfirmCopy();
+                      break;
+                    case "createFolder":
+                      void handleConfirmCreateFolder();
+                      break;
+                  }
+                }}
+              >
+                {dialogButtonLabel}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {dialog.type !== "none" && ["move", "copy"].includes(dialog.type) && (
+        <FolderPickerDialog
+          open={folderPickerFor !== null}
+          onOpenChange={(open) => {
+            if (!open) setFolderPickerFor(null);
+          }}
+          profile={activeProfile!}
+          bucketName={currentBucketName!}
+          title={folderPickerFor === "move" ? "Select move destination" : "Select copy destination"}
+          onSelect={(prefix) => {
+            setPromptValue(prefix);
+            setFolderPickerFor(null);
+          }}
+        />
+      )}
     </section>
   );
 }
@@ -408,7 +948,7 @@ function formatBytes(bytes: number): string {
 
 function formatDate(value?: string): string {
   if (!value) {
-    return "—";
+    return "\u2014";
   }
 
   return new Intl.DateTimeFormat(undefined, {

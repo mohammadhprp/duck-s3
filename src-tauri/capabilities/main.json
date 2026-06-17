@@ -2,10 +2,5 @@
   "identifier": "main",
   "description": "Permissions for the main application window",
   "windows": ["main"],
-  "permissions": [
-    "core:event:allow-listen",
-    "core:default",
-    "dialog:default",
-    "opener:default"
-  ]
+  "permissions": ["core:event:allow-listen", "core:default", "dialog:default", "opener:default"]
 }

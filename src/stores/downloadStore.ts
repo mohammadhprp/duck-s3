@@ -134,9 +134,7 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
   },
   clearFinished() {
     set((state) => ({
-      jobs: state.jobs.filter(
-        (job) => !["completed", "failed", "canceled"].includes(job.status),
-      ),
+      jobs: state.jobs.filter((job) => !["completed", "failed", "canceled"].includes(job.status)),
       lastMessage: "Cleared finished downloads.",
     }));
   },
@@ -160,9 +158,7 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
       return;
     }
 
-    const nextJobs = state.jobs
-      .filter((job) => job.status === "queued")
-      .slice(0, availableSlots);
+    const nextJobs = state.jobs.filter((job) => job.status === "queued").slice(0, availableSlots);
 
     if (nextJobs.length === 0) {
       return;
@@ -245,7 +241,10 @@ async function downloadJob(job: DownloadJob) {
                     : candidate.status,
               destinationPath: event.destination_path || candidate.destinationPath,
               error: event.error ?? candidate.error,
-              completedAt: event.status === "completed" || event.status === "failed" ? Date.now() : candidate.completedAt,
+              completedAt:
+                event.status === "completed" || event.status === "failed"
+                  ? Date.now()
+                  : candidate.completedAt,
             };
           }),
         }));
@@ -288,7 +287,9 @@ async function downloadJob(job: DownloadJob) {
             }
           : candidate,
       ),
-      lastMessage: controller.signal.aborted ? "Download canceled." : `Download failed: ${errorMessage}`,
+      lastMessage: controller.signal.aborted
+        ? "Download canceled."
+        : `Download failed: ${errorMessage}`,
     }));
   } finally {
     downloadControllers.delete(job.id);
@@ -298,10 +299,7 @@ async function downloadJob(job: DownloadJob) {
   }
 }
 
-async function chooseDownloadPath(
-  defaultName: string,
-  isFolder: boolean,
-): Promise<string | null> {
+async function chooseDownloadPath(defaultName: string, isFolder: boolean): Promise<string | null> {
   try {
     if (isFolder) {
       const selected = await open({

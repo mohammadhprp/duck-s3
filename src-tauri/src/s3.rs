@@ -725,6 +725,172 @@ pub fn s3_open_in_finder(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn s3_delete_object(
+    profile: S3Profile,
+    bucket_name: String,
+    key: String,
+) -> Result<(), String> {
+    let client = build_s3_client(&profile);
+
+    client
+        .delete_object()
+        .bucket(&bucket_name)
+        .key(&key)
+        .send()
+        .await
+        .map_err(|e| format!("S3 error: {e:?}"))?;
+
+    Ok(())
+}
+
+#[derive(Debug, Serialize)]
+pub struct ListAllKeysResult {
+    pub keys: Vec<String>,
+}
+
+#[tauri::command]
+pub async fn s3_list_all_keys(
+    profile: S3Profile,
+    bucket_name: String,
+    prefix: String,
+) -> Result<ListAllKeysResult, String> {
+    let client = build_s3_client(&profile);
+    let mut keys = Vec::new();
+    let mut continuation_token: Option<String> = None;
+
+    loop {
+        let mut request = client
+            .list_objects_v2()
+            .bucket(&bucket_name)
+            .prefix(&prefix)
+            .max_keys(1000);
+
+        if let Some(ref token) = continuation_token {
+            request = request.continuation_token(token);
+        }
+
+        let output = request.send().await.map_err(|e| format!("S3 error: {e:?}"))?;
+
+        for object in output.contents() {
+            if let Some(key) = object.key() {
+                if !key.ends_with('/') {
+                    keys.push(key.to_string());
+                }
+            }
+        }
+
+        continuation_token = output.next_continuation_token().map(ToString::to_string);
+        if continuation_token.is_none() {
+            break;
+        }
+    }
+
+    Ok(ListAllKeysResult { keys })
+}
+
+#[derive(Debug, Serialize)]
+pub struct DeleteObjectsResult {
+    pub deleted: Vec<String>,
+    pub errors: Vec<String>,
+}
+
+#[tauri::command]
+pub async fn s3_delete_objects(
+    profile: S3Profile,
+    bucket_name: String,
+    keys: Vec<String>,
+) -> Result<DeleteObjectsResult, String> {
+    let client = build_s3_client(&profile);
+
+    let objects: Vec<aws_sdk_s3::types::ObjectIdentifier> = keys
+        .iter()
+        .map(|key| {
+            aws_sdk_s3::types::ObjectIdentifier::builder()
+                .key(key)
+                .build()
+                .expect("Failed to build ObjectIdentifier")
+        })
+        .collect();
+
+    let delete = aws_sdk_s3::types::Delete::builder()
+        .set_objects(Some(objects))
+        .build()
+        .expect("Failed to build Delete");
+
+    let output = client
+        .delete_objects()
+        .bucket(&bucket_name)
+        .delete(delete)
+        .send()
+        .await
+        .map_err(|e| format!("S3 error: {e:?}"))?;
+
+    let deleted = output
+        .deleted()
+        .iter()
+        .filter_map(|o| o.key().map(ToString::to_string))
+        .collect();
+
+    let errors = output
+        .errors()
+        .iter()
+        .map(|e| {
+            format!(
+                "{}: {}",
+                e.key().unwrap_or("unknown"),
+                e.message().unwrap_or("unknown error")
+            )
+        })
+        .collect();
+
+    Ok(DeleteObjectsResult { deleted, errors })
+}
+
+#[tauri::command]
+pub async fn s3_copy_object(
+    profile: S3Profile,
+    source_bucket: String,
+    source_key: String,
+    destination_bucket: String,
+    destination_key: String,
+) -> Result<(), String> {
+    let client = build_s3_client(&profile);
+    let copy_source = format!("{}/{}", source_bucket, source_key);
+
+    client
+        .copy_object()
+        .bucket(&destination_bucket)
+        .key(&destination_key)
+        .copy_source(&copy_source)
+        .send()
+        .await
+        .map_err(|e| format!("S3 error: {e:?}"))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn s3_create_folder(
+    profile: S3Profile,
+    bucket_name: String,
+    prefix: String,
+) -> Result<(), String> {
+    let client = build_s3_client(&profile);
+    let folder_key = normalize_prefix(&prefix);
+
+    client
+        .put_object()
+        .bucket(&bucket_name)
+        .key(&folder_key)
+        .body(ByteStream::from(Vec::new()))
+        .send()
+        .await
+        .map_err(|e| format!("S3 error: {e:?}"))?;
+
+    Ok(())
+}
+
+#[tauri::command]
 pub fn get_home_dir() -> Result<String, String> {
     let home = std::env::var("HOME").map_err(|e| format!("Failed to get home directory: {e}"))?;
     Ok(home)

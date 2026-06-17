@@ -18,6 +18,11 @@ pub fn run() {
             s3::s3_get_object_info,
             s3::s3_download_object,
             s3::s3_download_folder,
+            s3::s3_delete_object,
+            s3::s3_delete_objects,
+            s3::s3_copy_object,
+            s3::s3_create_folder,
+            s3::s3_list_all_keys,
             s3::s3_open_in_finder,
             s3::get_home_dir,
         ])

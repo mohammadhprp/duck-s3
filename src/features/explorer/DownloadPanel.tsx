@@ -1,13 +1,5 @@
 import { useState } from "react";
-import {
-  ChevronDown,
-  ChevronUp,
-  Download,
-  FolderOpen,
-  Trash2,
-  X,
-  RotateCcw,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, Download, FolderOpen, Trash2, X, RotateCcw } from "lucide-react";
 
 import { Button } from "@cloudflare/kumo/components/button";
 import { useDownloadStore } from "@/stores/downloadStore";
@@ -35,11 +27,7 @@ export function DownloadPanel() {
             className="flex items-center gap-1 text-sm font-medium hover:text-foreground"
             onClick={() => setIsExpanded(!isExpanded)}
           >
-            {isExpanded ? (
-              <ChevronDown className="size-4" />
-            ) : (
-              <ChevronUp className="size-4" />
-            )}
+            {isExpanded ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
             Downloads
           </button>
           <span className="text-xs text-muted-foreground">
@@ -52,12 +40,7 @@ export function DownloadPanel() {
         </div>
         <div className="flex items-center gap-1">
           {finishedJobs.length > 0 && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => clearFinished()}
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={() => clearFinished()}>
               <Trash2 className="size-3" />
             </Button>
           )}
@@ -79,11 +62,16 @@ export function DownloadPanel() {
               key={job.id}
               job={job}
               onCancel={() => cancelDownload(job.id)}
-              onRetry={() => retryDownload({
-                ...job.profile,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              }, job.id)}
+              onRetry={() =>
+                retryDownload(
+                  {
+                    ...job.profile,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  },
+                  job.id,
+                )
+              }
               onOpenInFinder={() => openInFinderForJob(job.id)}
             />
           ))}
@@ -170,9 +158,7 @@ function DownloadJobRow({
           >
             <RotateCcw className="size-3" /> Retry
           </button>
-          {job.error && (
-            <span className="text-xs text-destructive">{job.error}</span>
-          )}
+          {job.error && <span className="text-xs text-destructive">{job.error}</span>}
         </div>
       )}
       {job.status === "completed" && (
@@ -247,10 +233,7 @@ function formatBytes(bytes: number): string {
   }
 
   const units = ["B", "KB", "MB", "GB", "TB"];
-  const unitIndex = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-    units.length - 1,
-  );
+  const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   const value = bytes / 1024 ** unitIndex;
 
   return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;

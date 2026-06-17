@@ -301,12 +301,12 @@ Keep MVP simple:
 
 ## Features
 
-* [ ] Delete object
-* [ ] Rename object
-* [ ] Move object
-* [ ] Copy object
-* [ ] Create folder
-* [ ] Bulk select
+* [x] Delete object
+* [x] Rename object
+* [x] Move object
+* [x] Copy object
+* [x] Create folder
+* [x] Bulk select
 
 ---
 
