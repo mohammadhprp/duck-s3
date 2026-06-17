@@ -335,7 +335,6 @@ Preview common files.
 * [x] JSON
 * [x] Text
 * [x] PDF
-* [ ] Markdown
 
 ---
 
@@ -345,7 +344,6 @@ Preview common files.
 * [x] Base64 encoding & transfer
 * [x] Preview modal
 * [x] Single-click file preview
-* [ ] Markdown rendering
 
 ---
 
