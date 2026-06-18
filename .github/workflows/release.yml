@@ -60,11 +60,25 @@ jobs:
           find src-tauri/target -type f \( -name '*.dmg' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.msi' -o -name '*.exe' -o -name '*.tar.gz' -o -name '*.zip' \) -exec cp {} artifacts/ 2>/dev/null || true
           ls -la artifacts/
 
+      - name: Generate changelog
+        id: changelog
+        shell: bash
+        run: |
+          PREV_TAG=$(git tag --sort=-v:refname | sed -n '2p')
+          if [ -z "$PREV_TAG" ]; then
+            CHANGELOG="Initial release ${{ github.ref_name }}"
+          else
+            CHANGELOG=$(git log "$PREV_TAG".."${{ github.ref_name }}" --oneline --no-decorate 2>/dev/null || echo "No changes found")
+          fi
+          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+          echo "$CHANGELOG" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
       - name: Upload artifacts
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: Duck S3 ${{ github.ref_name }}
-          body: See the assets to download and install this version.
+          body: ${{ env.CHANGELOG }}
           files: artifacts/*
-          draft: true
+          make_latest: true
