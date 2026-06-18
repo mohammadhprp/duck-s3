@@ -9,18 +9,16 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  publish-tauri:
+  build:
     timeout-minutes: 120
-    permissions:
-      contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: macos-latest
-            args: --target aarch64-apple-darwin
+            target: aarch64-apple-darwin
           - platform: macos-latest
-            args: --target x86_64-apple-darwin
+            target: x86_64-apple-darwin
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -40,7 +38,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -51,34 +49,56 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm tauri build ${{ matrix.args }}
+        run: pnpm tauri build --target ${{ matrix.target }}
 
       - name: Collect artifacts
         shell: bash
         run: |
           mkdir -p artifacts
-          find src-tauri/target -type f \( -name '*.dmg' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.msi' -o -name '*.exe' -o -name '*.tar.gz' -o -name '*.zip' \) -exec cp {} artifacts/ 2>/dev/null || true
+          find src-tauri/target -type f \( -name '*.dmg' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.msi' -o -name '*.exe' -o -name '*.tar.gz' -o -name '*.zip' \) -print0 | while IFS= read -r -d '' f; do
+            cp "$f" artifacts/
+          done
           ls -la artifacts/
 
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundles-${{ matrix.target }}
+          path: artifacts/
+
+  release:
+    needs: build
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+          pattern: bundles-*
+          merge-multiple: true
+
+      - name: List downloaded files
+        run: ls -la artifacts/
+
       - name: Generate changelog
-        id: changelog
         shell: bash
         run: |
           PREV_TAG=$(git tag --sort=-v:refname | sed -n '2p')
           if [ -z "$PREV_TAG" ]; then
-            CHANGELOG="Initial release ${{ github.ref_name }}"
+            echo "Initial release ${{ github.ref_name }}" > release-notes.md
           else
-            CHANGELOG=$(git log "$PREV_TAG".."${{ github.ref_name }}" --oneline --no-decorate 2>/dev/null || echo "No changes found")
+            git log "$PREV_TAG".."${{ github.ref_name }}" --oneline --no-decorate > release-notes.md
           fi
-          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
-          echo "$CHANGELOG" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
 
-      - name: Upload artifacts
+      - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Duck S3 ${{ github.ref_name }}
-          body: ${{ env.CHANGELOG }}
+          name: ${{ github.ref_name }}
           files: artifacts/*
+          body_path: release-notes.md
           make_latest: true
