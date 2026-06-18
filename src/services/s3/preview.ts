@@ -41,7 +41,7 @@ export function getPreviewContent(
   key: string,
 ): Promise<S3PreviewContent> {
   if (!isTauri()) {
-    throw new Error("S3 preview requires running inside Tauri. Use `bun run tauri dev`.");
+    throw new Error("S3 preview requires running inside Tauri. Use `pnpm tauri dev`.");
   }
 
   return invoke<TauriS3ObjectBody>("s3_get_object_body", {

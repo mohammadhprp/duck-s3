@@ -42,7 +42,7 @@ function toTauriProfile(profile: ConnectionProfileInput): TauriS3Profile {
 
 function assertTauri() {
   if (!isTauri()) {
-    throw new Error("S3 uploads require running inside Tauri. Use `bun run tauri dev`.");
+    throw new Error("S3 uploads require running inside Tauri. Use `pnpm tauri dev`.");
   }
 }
 

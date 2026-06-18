@@ -321,6 +321,9 @@ async function downloadJob(job: DownloadJob) {
     }
   } catch (error) {
     const errorMessage = getDownloadErrorMessage(error);
+    const failedFileName = job.isFolder
+      ? job.key.split("/").filter(Boolean).pop() || "folder"
+      : job.key.split("/").pop() || "download";
 
     useDownloadStore.setState((state) => ({
       jobs: state.jobs.map((candidate) =>
@@ -343,7 +346,7 @@ async function downloadJob(job: DownloadJob) {
         useFileOpNotificationStore.getState().removeNotification(notifId);
       } else {
         useFileOpNotificationStore.getState().updateNotification(notifId, {
-          message: `Failed to download "${defaultFileName}"`,
+          message: `Failed to download "${failedFileName}"`,
           status: "error",
           canCancel: false,
           canRetry: true,

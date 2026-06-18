@@ -14,11 +14,11 @@ A lightweight desktop app for managing S3 storage connections.
 
 ```bash
 # Install dependencies
-bun install
+pnpm install
 
 # Run dev server
-bun run tauri dev
+pnpm tauri dev
 
 # Build desktop app
-bun run tauri build
+pnpm tauri build
 ```

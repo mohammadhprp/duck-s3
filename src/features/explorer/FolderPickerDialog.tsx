@@ -94,7 +94,6 @@ export function FolderPickerDialog({
             type="button"
             variant="ghost"
             size="sm"
-            shape="square"
             onClick={() => onOpenChange(false)}
           >
             <X className="size-4" />

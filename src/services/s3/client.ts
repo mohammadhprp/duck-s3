@@ -107,7 +107,7 @@ function fromTauriObjectPage(page: TauriS3ObjectExplorerPage): S3ObjectExplorerP
 
 export async function listBuckets(profile: ConnectionProfileInput): Promise<S3BucketSummary[]> {
   if (!isTauri()) {
-    throw new Error("S3 operations require running inside Tauri. Use `bun run tauri dev`.");
+    throw new Error("S3 operations require running inside Tauri. Use `pnpm tauri dev`.");
   }
 
   const buckets = await invoke<TauriS3Bucket[]>("s3_list_buckets", {
@@ -121,7 +121,7 @@ export async function createBucket(
   bucketName: string,
 ): Promise<void> {
   if (!isTauri()) {
-    throw new Error("S3 operations require running inside Tauri. Use `bun run tauri dev`.");
+    throw new Error("S3 operations require running inside Tauri. Use `pnpm tauri dev`.");
   }
 
   await invoke("s3_create_bucket", {
@@ -135,7 +135,7 @@ export async function deleteBucket(
   bucketName: string,
 ): Promise<void> {
   if (!isTauri()) {
-    throw new Error("S3 operations require running inside Tauri. Use `bun run tauri dev`.");
+    throw new Error("S3 operations require running inside Tauri. Use `pnpm tauri dev`.");
   }
 
   await invoke("s3_delete_bucket", {
@@ -151,7 +151,7 @@ export async function listObjects(
   continuationToken?: string,
 ): Promise<S3ObjectExplorerPage> {
   if (!isTauri()) {
-    throw new Error("S3 operations require running inside Tauri. Use `bun run tauri dev`.");
+    throw new Error("S3 operations require running inside Tauri. Use `pnpm tauri dev`.");
   }
 
   const page = await invoke<TauriS3ObjectExplorerPage>("s3_list_objects", {
@@ -175,7 +175,7 @@ export async function deleteObject(
   key: string,
 ): Promise<void> {
   if (!isTauri()) {
-    throw new Error("S3 operations require running inside Tauri. Use `bun run tauri dev`.");
+    throw new Error("S3 operations require running inside Tauri. Use `pnpm tauri dev`.");
   }
 
   await invoke("s3_delete_object", {
@@ -191,7 +191,7 @@ export async function deleteObjects(
   keys: string[],
 ): Promise<{ deleted: string[]; errors: string[] }> {
   if (!isTauri()) {
-    throw new Error("S3 operations require running inside Tauri. Use `bun run tauri dev`.");
+    throw new Error("S3 operations require running inside Tauri. Use `pnpm tauri dev`.");
   }
 
   const result = await invoke<TauriDeleteObjectsResult>("s3_delete_objects", {
@@ -213,7 +213,7 @@ export async function listAllKeys(
   prefix: string,
 ): Promise<string[]> {
   if (!isTauri()) {
-    throw new Error("S3 operations require running inside Tauri. Use `bun run tauri dev`.");
+    throw new Error("S3 operations require running inside Tauri. Use `pnpm tauri dev`.");
   }
 
   const result = await invoke<TauriListAllKeysResult>("s3_list_all_keys", {
@@ -233,7 +233,7 @@ export async function copyObject(
   destinationKey: string,
 ): Promise<void> {
   if (!isTauri()) {
-    throw new Error("S3 operations require running inside Tauri. Use `bun run tauri dev`.");
+    throw new Error("S3 operations require running inside Tauri. Use `pnpm tauri dev`.");
   }
 
   await invoke("s3_copy_object", {
@@ -251,7 +251,7 @@ export async function createFolder(
   prefix: string,
 ): Promise<void> {
   if (!isTauri()) {
-    throw new Error("S3 operations require running inside Tauri. Use `bun run tauri dev`.");
+    throw new Error("S3 operations require running inside Tauri. Use `pnpm tauri dev`.");
   }
 
   await invoke("s3_create_folder", {
@@ -267,7 +267,7 @@ export async function testS3Connection(
   if (!isTauri()) {
     return {
       ok: false,
-      message: "S3 operations require running inside Tauri. Use `bun run tauri dev`.",
+      message: "S3 operations require running inside Tauri. Use `pnpm tauri dev`.",
     };
   }
 

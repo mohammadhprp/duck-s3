@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.ducks3.app",
   "build": {
-    "beforeDevCommand": "bun run dev || npm run dev",
+    "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "bun run build || npm run build",
+    "beforeBuildCommand": "pnpm build",
     "frontendDist": "../dist"
   },
   "app": {

@@ -57,6 +57,7 @@ const sortLabels: Record<ObjectExplorerSortField, string> = {
   name: "Name",
   size: "Size",
   lastModified: "Last Modified",
+  storageClass: "Storage Class",
 };
 
 export function ObjectExplorer() {
@@ -234,10 +235,10 @@ export function ObjectExplorer() {
     if (dialog.type !== "confirmBulkDelete") return;
 
     const { keys, count } = dialog;
-    const notifId = addNotification(
-      `Deleting ${count} object${count === 1 ? "" : "s"}...`,
-      "running",
-    );
+    const notifId = addNotification({
+      message: `Deleting ${count} object${count === 1 ? "" : "s"}...`,
+      status: "running",
+    });
     setDialog({ type: "none" });
 
     if (!activeProfile || !currentBucketName) return;
