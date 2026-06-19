@@ -2,8 +2,8 @@ import { create } from "zustand";
 
 import { listObjects } from "@/services/s3/client";
 import { categorizeS3Error } from "@/services/s3/errors";
-import type { ConnectionProfile } from "@/types/connection";
-import type { ObjectExplorerStatus, S3ObjectExplorerPage } from "@/types/object";
+import type { ConnectionProfile } from "@/features/connections/types/connection";
+import type { ObjectExplorerStatus, S3ObjectExplorerPage } from "@/features/explorer/types/object";
 
 interface ObjectExplorerState {
   currentBucketName?: string;

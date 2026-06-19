@@ -1,12 +1,12 @@
 import { useEffect, useMemo } from "react";
-import { useConnectionStore } from "@/stores/connectionStore";
-import { useBucketStore } from "@/stores/bucketStore";
-import { useObjectExplorerStore } from "@/stores/objectExplorerStore";
-import { ConnectionSidebar } from "@/features/connections/ConnectionSidebar";
-import { BucketPanel } from "@/features/buckets/BucketPanel";
-import { ObjectExplorer } from "@/features/explorer/ObjectExplorer";
-import { FileOpNotifications } from "@/features/explorer/FileOpNotifications";
-import { DownloadPanel } from "@/features/explorer/DownloadPanel";
+import { useConnectionStore } from "@/features/connections/stores/connectionStore";
+import { useBucketStore } from "@/features/buckets/stores/bucketStore";
+import { useObjectExplorerStore } from "@/features/explorer/stores/objectExplorerStore";
+import { ConnectionSidebar } from "@/features/connections/components/ConnectionSidebar";
+import { BucketPanel } from "@/features/buckets/components/BucketPanel";
+import { ObjectExplorer } from "@/features/explorer/components/ObjectExplorer";
+import { FileOpNotifications } from "@/features/explorer/components/FileOpNotifications";
+import { DownloadPanel } from "@/features/explorer/components/DownloadPanel";
 
 function App() {
   const { activeProfileId, hydrated, hydrate, profiles } = useConnectionStore();

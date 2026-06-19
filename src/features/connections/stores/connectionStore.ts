@@ -7,7 +7,7 @@ import type {
   ConnectionProfile,
   ConnectionProfileInput,
   ConnectionStatus,
-} from "@/types/connection";
+} from "@/features/connections/types/connection";
 
 interface ConnectionState {
   profiles: ConnectionProfile[];

@@ -1,8 +1,12 @@
 import { FormEvent, useEffect, useState } from "react";
 import { CheckCircle2, KeyRound, Plug, PlugZap, Plus, Server, Trash2, X } from "lucide-react";
 import { Button } from "@cloudflare/kumo/components/button";
-import { useConnectionStore } from "@/stores/connectionStore";
-import type { ConnectionProfile, ConnectionProfileInput, S3Provider } from "@/types/connection";
+import { useConnectionStore } from "@/features/connections/stores/connectionStore";
+import type {
+  ConnectionProfile,
+  ConnectionProfileInput,
+  S3Provider,
+} from "@/features/connections/types/connection";
 
 const providerDefaults: Record<
   S3Provider,

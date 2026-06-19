@@ -2,8 +2,8 @@ import { useState } from "react";
 import { ChevronDown, ChevronUp, Download, FolderOpen, Trash2, X, RotateCcw } from "lucide-react";
 
 import { Button } from "@cloudflare/kumo/components/button";
-import { useDownloadStore } from "@/stores/downloadStore";
-import type { DownloadJob } from "@/types/download";
+import { useDownloadStore } from "@/features/explorer/stores/downloadStore";
+import type { DownloadJob } from "@/features/explorer/types/download";
 
 export function DownloadPanel() {
   const { jobs, lastMessage, clearFinished, cancelDownload, retryDownload, openInFinderForJob } =

@@ -1,6 +1,6 @@
 import { FolderOpen, Plus } from "lucide-react";
 import { Button } from "@cloudflare/kumo/components/button";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { useConnectionStore } from "@/features/connections/stores/connectionStore";
 import { ConnectionSheet } from "./ConnectionSheet";
 import { useState } from "react";
 

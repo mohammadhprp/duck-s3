@@ -1,4 +1,4 @@
-import type { ConnectionProfileInput } from "@/types/connection";
+import type { ConnectionProfileInput } from "@/features/connections/types/connection";
 
 export interface ValidationResult {
   valid: boolean;

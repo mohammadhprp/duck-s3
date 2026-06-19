@@ -3,10 +3,10 @@ import { create } from "zustand";
 import { downloadFolder, downloadObject, listenDownloadProgress } from "@/services/s3/download";
 import { openInFinder } from "@/services/s3/download";
 import { categorizeS3Error } from "@/services/s3/errors";
-import { useFileOpNotificationStore } from "@/stores/fileOpNotificationStore";
+import { useFileOpNotificationStore } from "@/features/explorer/stores/fileOpNotificationStore";
 import { save, open } from "@tauri-apps/plugin-dialog";
-import type { ConnectionProfile } from "@/types/connection";
-import type { DownloadJob, DownloadSelection } from "@/types/download";
+import type { ConnectionProfile } from "@/features/connections/types/connection";
+import type { DownloadJob, DownloadSelection } from "@/features/explorer/types/download";
 
 const MAX_CONCURRENT_DOWNLOADS = 3;
 

@@ -2,9 +2,9 @@ import { create } from "zustand";
 
 import { isUploadAbortError, uploadFileMultipart } from "@/services/s3/upload";
 import { categorizeS3Error } from "@/services/s3/errors";
-import { useFileOpNotificationStore } from "@/stores/fileOpNotificationStore";
-import type { ConnectionProfile } from "@/types/connection";
-import type { UploadJob, UploadSelection } from "@/types/upload";
+import { useFileOpNotificationStore } from "@/features/explorer/stores/fileOpNotificationStore";
+import type { ConnectionProfile } from "@/features/connections/types/connection";
+import type { UploadJob, UploadSelection } from "@/features/explorer/types/upload";
 
 const MAX_CONCURRENT_UPLOADS = 3;
 

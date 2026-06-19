@@ -1,9 +1,16 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { normalizeEndpoint } from "@/services/s3/validation";
-import type { S3BucketSummary } from "@/types/bucket";
-import type { S3ObjectExplorerPage, S3ObjectFile, S3ObjectFolder } from "@/types/object";
-import type { ConnectionProfileInput, ConnectionTestResult } from "@/types/connection";
+import type { S3BucketSummary } from "@/features/buckets/types/bucket";
+import type {
+  S3ObjectExplorerPage,
+  S3ObjectFile,
+  S3ObjectFolder,
+} from "@/features/explorer/types/object";
+import type {
+  ConnectionProfileInput,
+  ConnectionTestResult,
+} from "@/features/connections/types/connection";
 
 interface TauriS3Profile {
   endpoint: string | null;

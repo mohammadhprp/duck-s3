@@ -1,4 +1,4 @@
-import type { ConnectionProfile } from "@/types/connection";
+import type { ConnectionProfile } from "@/features/connections/types/connection";
 
 const STORAGE_KEY = "duck-s3.connection-profiles.v1";
 const CRYPTO_KEY = "duck-s3.local-aes-key.v1";

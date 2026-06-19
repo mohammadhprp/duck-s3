@@ -1,9 +1,9 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Database, Plus, RefreshCw, Search } from "lucide-react";
 import { Button } from "@cloudflare/kumo/components/button";
-import { useBucketStore } from "@/stores/bucketStore";
-import { useConnectionStore } from "@/stores/connectionStore";
-import { useObjectExplorerStore } from "@/stores/objectExplorerStore";
+import { useBucketStore } from "@/features/buckets/stores/bucketStore";
+import { useConnectionStore } from "@/features/connections/stores/connectionStore";
+import { useObjectExplorerStore } from "@/features/explorer/stores/objectExplorerStore";
 
 export function BucketPanel() {
   const { activeProfileId, profiles } = useConnectionStore();

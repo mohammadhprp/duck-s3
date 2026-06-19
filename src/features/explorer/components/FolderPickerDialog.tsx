@@ -3,8 +3,8 @@ import { ChevronRight, Folder, Loader2, X } from "lucide-react";
 
 import { Button } from "@cloudflare/kumo/components/button";
 import { listObjects } from "@/services/s3/client";
-import type { ConnectionProfile } from "@/types/connection";
-import type { S3ObjectFolder } from "@/types/object";
+import type { ConnectionProfile } from "@/features/connections/types/connection";
+import type { S3ObjectFolder } from "@/features/explorer/types/object";
 
 interface FolderPickerDialogProps {
   open: boolean;

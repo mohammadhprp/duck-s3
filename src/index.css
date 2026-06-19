@@ -112,6 +112,10 @@
   button {
     font: inherit;
   }
+
+  button:focus-visible {
+    --color-kumo-brand: transparent;
+  }
 }
 
 @layer components {

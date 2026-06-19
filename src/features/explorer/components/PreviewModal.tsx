@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { Download, FileSymlink, X } from "lucide-react";
 
 import { Button } from "@cloudflare/kumo/components/button";
-import { usePreviewStore } from "@/stores/previewStore";
+import { usePreviewStore } from "@/features/explorer/stores/previewStore";
 
 const IMAGE_TYPES = new Set([
   "image/jpeg",

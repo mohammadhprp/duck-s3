@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, File, Folder, Upload } from "lucide-react";
 
 import { Button } from "@cloudflare/kumo/components/button";
-import { useConnectionStore } from "@/stores/connectionStore";
-import { useObjectExplorerStore } from "@/stores/objectExplorerStore";
-import { useUploadStore } from "@/stores/uploadStore";
-import type { UploadSelection } from "@/types/upload";
+import { useConnectionStore } from "@/features/connections/stores/connectionStore";
+import { useObjectExplorerStore } from "@/features/explorer/stores/objectExplorerStore";
+import { useUploadStore } from "@/features/explorer/stores/uploadStore";
+import type { UploadSelection } from "@/features/explorer/types/upload";
 
 export function UploadTrigger() {
   const fileInputRef = useRef<HTMLInputElement>(null);

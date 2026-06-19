@@ -1,4 +1,4 @@
-import type { S3Provider } from "./connection";
+import type { S3Provider } from "@/features/connections/types/connection";
 
 export type DownloadJobStatus = "queued" | "downloading" | "completed" | "failed" | "canceled";
 

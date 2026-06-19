@@ -1,7 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
-import type { ConnectionProfileInput } from "@/types/connection";
+import type { ConnectionProfileInput } from "@/features/connections/types/connection";
 import { normalizeEndpoint } from "@/services/s3/validation";
 
 interface TauriS3Profile {

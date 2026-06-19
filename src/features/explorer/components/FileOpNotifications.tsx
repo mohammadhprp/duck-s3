@@ -2,8 +2,8 @@ import { useEffect } from "react";
 import { CheckCircle2, FolderOpen, Loader2, RotateCcw, X, XCircle } from "lucide-react";
 
 import { Button } from "@cloudflare/kumo/components/button";
-import { useFileOpNotificationStore } from "@/stores/fileOpNotificationStore";
-import type { FileOpNotification } from "@/stores/fileOpNotificationStore";
+import { useFileOpNotificationStore } from "@/features/explorer/stores/fileOpNotificationStore";
+import type { FileOpNotification } from "@/features/explorer/stores/fileOpNotificationStore";
 
 export function FileOpNotifications() {
   const notifications = useFileOpNotificationStore((state) => state.notifications);
@@ -102,11 +102,11 @@ function cancelJob(notification: FileOpNotification) {
   if (!meta?.jobId) return;
 
   if (meta.source === "upload") {
-    import("@/stores/uploadStore").then(({ useUploadStore }) => {
+    import("@/features/explorer/stores/uploadStore").then(({ useUploadStore }) => {
       useUploadStore.getState().cancelUpload(meta.jobId!);
     });
   } else if (meta.source === "download") {
-    import("@/stores/downloadStore").then(({ useDownloadStore }) => {
+    import("@/features/explorer/stores/downloadStore").then(({ useDownloadStore }) => {
       useDownloadStore.getState().cancelDownload(meta.jobId!);
     });
   }
@@ -116,16 +116,16 @@ function retryJob(notification: FileOpNotification) {
   const meta = notification.metadata;
   if (!meta?.jobId || !meta.profileId) return;
 
-  import("@/stores/connectionStore").then(({ useConnectionStore }) => {
+  import("@/features/connections/stores/connectionStore").then(({ useConnectionStore }) => {
     const profile = useConnectionStore.getState().profiles.find((p) => p.id === meta!.profileId);
     if (!profile) return;
 
     if (meta!.source === "upload") {
-      import("@/stores/uploadStore").then(({ useUploadStore }) => {
+      import("@/features/explorer/stores/uploadStore").then(({ useUploadStore }) => {
         useUploadStore.getState().retryUpload(profile, meta!.jobId!);
       });
     } else if (meta!.source === "download") {
-      import("@/stores/downloadStore").then(({ useDownloadStore }) => {
+      import("@/features/explorer/stores/downloadStore").then(({ useDownloadStore }) => {
         useDownloadStore.getState().retryDownload(profile, meta!.jobId!);
       });
     }

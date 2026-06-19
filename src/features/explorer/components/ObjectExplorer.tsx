@@ -18,9 +18,9 @@ import {
 } from "lucide-react";
 
 import { Button } from "@cloudflare/kumo/components/button";
-import { useConnectionStore } from "@/stores/connectionStore";
-import { useObjectExplorerStore } from "@/stores/objectExplorerStore";
-import { useDownloadStore } from "@/stores/downloadStore";
+import { useConnectionStore } from "@/features/connections/stores/connectionStore";
+import { useObjectExplorerStore } from "@/features/explorer/stores/objectExplorerStore";
+import { useDownloadStore } from "@/features/explorer/stores/downloadStore";
 import {
   deleteObject,
   deleteObjects,
@@ -33,14 +33,14 @@ import type {
   ObjectExplorerSortField,
   S3ObjectFile,
   S3ObjectFolder,
-} from "@/types/object";
+} from "@/features/explorer/types/object";
 import { UploadTrigger } from "./UploadTrigger";
 import { FolderPickerDialog } from "./FolderPickerDialog";
 import { PreviewModal } from "./PreviewModal";
-import { useFileOpNotificationStore } from "@/stores/fileOpNotificationStore";
-import { usePreviewStore } from "@/stores/previewStore";
-import { useDebounce, useKeyboardShortcuts } from "@/hooks";
-import { CommandPaletteTrigger } from "@/components/CommandPaletteTrigger";
+import { useFileOpNotificationStore } from "@/features/explorer/stores/fileOpNotificationStore";
+import { usePreviewStore } from "@/features/explorer/stores/previewStore";
+import { useDebounce, useKeyboardShortcuts } from "@/shared/hooks";
+import { CommandPaletteTrigger } from "@/shared/components/CommandPaletteTrigger";
 
 type ExplorerRow =
   | { type: "folder"; folder: S3ObjectFolder; name: string }
