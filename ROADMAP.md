@@ -351,48 +351,32 @@ Preview common files.
 
 ## UX Features
 
-* [ ] Keyboard shortcuts
-* [ ] Command palette
-* [ ] Context menus
-* [ ] Right-click actions
-* [ ] Double-click navigation
-* [ ] Multi-tab support
+* [X] Keyboard shortcuts
+* [X] Command palette
+* [X] Context menus
+* [X] Right-click actions
+* [X] Double-click navigation
 
 ---
 
 ## Performance
 
-* [ ] Virtualized lists
-* [ ] Infinite scrolling
-* [ ] Caching
-* [ ] Debounced search
+* [X] Virtualized lists
+* [X] Caching
+* [X] Debounced search
 
 ---
 
 ## Error Handling
 
-* [ ] Network errors
-* [ ] Expired credentials
-* [ ] Permission errors
-* [ ] Upload failures
+* [X] Network errors
+* [X] Expired credentials
+* [X] Permission errors
+* [X] Upload failures
 
 ---
 
-# 11. Phase 9 — macOS Native Feel
-
-
-## Features
-
-* [ ] Native menus
-* [ ] Native notifications
-* [ ] Spotlight-like search
-* [ ] Finder integration
-* [ ] Drag from Finder
-* [ ] Native file dialogs
-
----
-
-# 12. Phase 10 — Security
+# 11. Phase 9 — Security
 
 ## MUST HAVE
 
@@ -403,18 +387,11 @@ Preview common files.
 
 ---
 
-## Optional
-
-* [ ] Keychain integration
-* [ ] Session locking
-* [ ] Biometric unlock
-
----
-
-# 13. Phase 11 — Advanced Features
+# 12. Phase 10 — Advanced Features
 
 ## Optional Future
 
+* [ ] Move and copy from another connection
 * [ ] Presigned URLs
 * [ ] Bucket policies
 * [ ] IAM explorer
@@ -428,90 +405,3 @@ Preview common files.
 * [ ] Local sync
 
 ---
-
-# 14. Recommended MVP Scope
-
-## BUILD THIS FIRST
-
-### Authentication
-
-* [ ] Add connection
-* [ ] Save connection
-
-### Explorer
-
-* [ ] Bucket list
-* [ ] Browse files
-* [ ] Breadcrumbs
-
-### File Operations
-
-* [ ] Upload
-* [ ] Download
-* [ ] Delete
-
-### UX
-
-* [ ] Drag/drop
-* [ ] Progress bars
-* [ ] Dark mode
-
----
-
-# 15. DO NOT BUILD YET
-
-Avoid:
-
-* IAM management
-* ACL editor
-* Lifecycle editor
-* Versioning
-* Resumable sync
-* Background daemon
-* Terminal integration
-* Real-time sync
-* Collaboration
-
-These kill momentum.
-
----
-
-# 16. Suggested Timeline
-
-## Weekend MVP
-
-* Setup
-* Connection system
-* Bucket explorer
-* Basic upload/download
-
----
-
-## Week 1
-
-* Better UI
-* Progress tracking
-* Drag/drop
-* File actions
-
----
-
-## Week 2
-
-* Preview system
-* Performance improvements
-* Better error handling
-
----
-
-# 17. Final MVP Definition
-
-If users can:
-
-* connect to S3
-* browse buckets
-* upload files
-* download files
-* delete files
-
-

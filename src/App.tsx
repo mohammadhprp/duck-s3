@@ -6,6 +6,7 @@ import { ConnectionSidebar } from "@/features/connections/ConnectionSidebar";
 import { BucketPanel } from "@/features/buckets/BucketPanel";
 import { ObjectExplorer } from "@/features/explorer/ObjectExplorer";
 import { FileOpNotifications } from "@/features/explorer/FileOpNotifications";
+import { DownloadPanel } from "@/features/explorer/DownloadPanel";
 
 function App() {
   const { activeProfileId, hydrated, hydrate, profiles } = useConnectionStore();
@@ -43,8 +44,11 @@ function App() {
         <div className="h-full overflow-hidden">
           <BucketPanel />
         </div>
-        <div className="h-full overflow-hidden">
-          <ObjectExplorer />
+        <div className="flex h-full min-w-0 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <ObjectExplorer />
+          </div>
+          <DownloadPanel />
         </div>
       </div>
       <FileOpNotifications />

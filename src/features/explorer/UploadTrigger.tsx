@@ -60,7 +60,12 @@ export function UploadTrigger() {
     >
       <div className="flex items-center gap-2">
         <div className="relative">
-          <Button type="button" size="sm" onClick={() => setMenuOpen(!menuOpen)}>
+          <Button
+            type="button"
+            size="sm"
+            data-upload-trigger
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
             <Upload className="mr-1.5 size-3.5" /> Upload
             <ChevronDown className="ml-1 size-3" />
           </Button>

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ArrowUpDown,
   ChevronRight,
@@ -39,6 +39,8 @@ import { FolderPickerDialog } from "./FolderPickerDialog";
 import { PreviewModal } from "./PreviewModal";
 import { useFileOpNotificationStore } from "@/stores/fileOpNotificationStore";
 import { usePreviewStore } from "@/stores/previewStore";
+import { useDebounce, useKeyboardShortcuts } from "@/hooks";
+import { CommandPaletteTrigger } from "@/components/CommandPaletteTrigger";
 
 type ExplorerRow =
   | { type: "folder"; folder: S3ObjectFolder; name: string }
@@ -66,24 +68,143 @@ export function ObjectExplorer() {
     useObjectExplorerStore();
   const { enqueueDownloads } = useDownloadStore();
   const [objectSearchTerm, setObjectSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(objectSearchTerm, 200);
   const [sortField, setSortField] = useState<ObjectExplorerSortField>("name");
   const [sortDirection, setSortDirection] = useState<ObjectExplorerSortDirection>("asc");
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<DialogState>({ type: "none" });
   const [promptValue, setPromptValue] = useState("");
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    row: ExplorerRow;
+    rowKey: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [folderPickerFor, setFolderPickerFor] = useState<"move" | "copy" | null>(null);
   const { addNotification, updateNotification } = useFileOpNotificationStore();
   const { openPreview, loadContent: loadPreviewContent } = usePreviewStore();
   const menuRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const activeProfile = useMemo(
     () => profiles.find((profile) => profile.id === activeProfileId),
     [activeProfileId, profiles],
   );
 
+  const handleContextMenuAction = useCallback(
+    (action: string) => {
+      if (!contextMenu) return;
+      const { row, rowKey } = contextMenu;
+      setContextMenu(null);
+
+      switch (action) {
+        case "preview":
+          if (row.type === "file") {
+            openPreview({ key: row.file.key, name: row.name });
+            if (activeProfile && currentBucketName) {
+              void loadPreviewContent(activeProfile, currentBucketName);
+            }
+          }
+          break;
+        case "rename":
+          setDialog({ type: "rename", key: rowKey, name: row.name });
+          setPromptValue(row.name);
+          break;
+        case "copy":
+          setDialog({ type: "copy", key: rowKey, name: row.name });
+          setPromptValue("");
+          break;
+        case "move":
+          setDialog({ type: "move", key: rowKey, name: row.name });
+          setPromptValue("");
+          break;
+        case "download":
+          if (row.type === "folder") {
+            if (activeProfile && currentBucketName) {
+              enqueueDownloads({
+                profile: activeProfile,
+                bucketName: currentBucketName,
+                selections: [{ key: row.folder.prefix, name: row.name, isFolder: true }],
+              });
+            }
+          } else {
+            if (activeProfile && currentBucketName) {
+              enqueueDownloads({
+                profile: activeProfile,
+                bucketName: currentBucketName,
+                selections: [
+                  { key: row.file.key, name: row.name, isFolder: false, size: row.file.size },
+                ],
+              });
+            }
+          }
+          break;
+        case "delete":
+          setDialog({
+            type: "confirmDelete",
+            key: rowKey,
+            name: row.name,
+            isFolder: row.type === "folder",
+          });
+          break;
+      }
+    },
+    [
+      contextMenu,
+      activeProfile,
+      currentBucketName,
+      openPreview,
+      loadPreviewContent,
+      enqueueDownloads,
+    ],
+  );
+
+  useKeyboardShortcuts([
+    {
+      key: "Escape",
+      handler: () => {
+        if (contextMenu) {
+          setContextMenu(null);
+        } else if (commandPaletteOpen) {
+          setCommandPaletteOpen(false);
+        } else if (activeMenu) {
+          setActiveMenu(null);
+        }
+      },
+    },
+    {
+      key: "k",
+      meta: true,
+      handler: () => {
+        setCommandPaletteOpen((prev) => !prev);
+      },
+    },
+    {
+      key: "r",
+      meta: true,
+      handler: () => {
+        if (activeProfile) void refreshCurrentPath(activeProfile);
+      },
+    },
+    {
+      key: "f",
+      meta: true,
+      handler: () => {
+        searchInputRef.current?.focus();
+      },
+    },
+    {
+      key: "Backspace",
+      alt: true,
+      handler: () => {
+        void handleGoUp();
+      },
+    },
+  ]);
   const rows = useMemo(() => {
-    const normalizedSearchTerm = objectSearchTerm.trim().toLowerCase();
+    const normalizedSearchTerm = debouncedSearch.trim().toLowerCase();
     const folderRows: ExplorerRow[] = (page?.folders ?? []).map((folder) => ({
       type: "folder",
       folder,
@@ -100,7 +221,7 @@ export function ObjectExplorer() {
         (row) => !normalizedSearchTerm || row.name.toLowerCase().includes(normalizedSearchTerm),
       )
       .sort((a, b) => compareRows(a, b, sortField, sortDirection));
-  }, [objectSearchTerm, page, sortDirection, sortField]);
+  }, [debouncedSearch, page, sortDirection, sortField]);
 
   const breadcrumbItems = useMemo(() => buildBreadcrumbItems(currentPrefix), [currentPrefix]);
   const isBusy = status === "loading";
@@ -556,6 +677,7 @@ export function ObjectExplorer() {
           <label className="relative block flex-1 text-sm font-medium">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
+              ref={searchInputRef}
               className="h-8 w-full rounded-md border border-input bg-background pl-8 pr-3 text-xs outline-none ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
               placeholder="Search current folder"
               value={objectSearchTerm}
@@ -663,6 +785,22 @@ export function ObjectExplorer() {
                   <tr
                     key={rowKey}
                     className={`bg-background transition hover:bg-accent/50 ${isSelected ? "bg-accent/30" : ""}`}
+                    onDoubleClick={() => {
+                      if (isBusy) return;
+                      if (row.type === "folder") {
+                        void handlePathOpen(row.folder.prefix);
+                      } else {
+                        openPreview({ key: row.file.key, name: row.name });
+                        if (activeProfile && currentBucketName) {
+                          void loadPreviewContent(activeProfile, currentBucketName);
+                        }
+                      }
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setActiveMenu(null);
+                      setContextMenu({ row, rowKey, x: e.clientX, y: e.clientY });
+                    }}
                   >
                     <td className="border-b border-border px-2 py-2.5">
                       <input
@@ -959,6 +1097,81 @@ export function ObjectExplorer() {
         />
       )}
       <PreviewModal />
+
+      <CommandPaletteTrigger
+        open={commandPaletteOpen}
+        onOpenChange={setCommandPaletteOpen}
+        onRefresh={() => {
+          if (activeProfile) void refreshCurrentPath(activeProfile);
+        }}
+        onNewFolder={() => {
+          setPromptValue("");
+          setDialog({ type: "createFolder" });
+        }}
+        onFocusSearch={() => searchInputRef.current?.focus()}
+        onGoUp={() => void handleGoUp()}
+        onUpload={() => {
+          const uploadBtn = document.querySelector<HTMLButtonElement>("[data-upload-trigger]");
+          uploadBtn?.click();
+        }}
+      />
+
+      {contextMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
+          <div
+            className="fixed z-50 w-44 rounded-lg border border-border bg-background py-1 shadow-xl"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-accent"
+              onClick={() => handleContextMenuAction("download")}
+            >
+              <Download className="size-3.5" /> Download
+            </button>
+            {contextMenu.row.type === "file" && (
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-accent"
+                onClick={() => handleContextMenuAction("preview")}
+              >
+                <FileSymlink className="size-3.5" /> Preview
+              </button>
+            )}
+            <div className="my-1 border-t border-border" />
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-accent"
+              onClick={() => handleContextMenuAction("rename")}
+            >
+              <Pencil className="size-3.5" /> Rename
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-accent"
+              onClick={() => handleContextMenuAction("copy")}
+            >
+              <Copy className="size-3.5" /> Copy
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-accent"
+              onClick={() => handleContextMenuAction("move")}
+            >
+              <Folder className="size-3.5" /> Move
+            </button>
+            <div className="my-1 border-t border-border" />
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-destructive hover:bg-accent"
+              onClick={() => handleContextMenuAction("delete")}
+            >
+              <Trash2 className="size-3.5" /> Delete
+            </button>
+          </div>
+        </>
+      )}
     </section>
   );
 }

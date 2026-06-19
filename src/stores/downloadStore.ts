@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import { downloadFolder, downloadObject, listenDownloadProgress } from "@/services/s3/download";
 import { openInFinder } from "@/services/s3/download";
+import { categorizeS3Error } from "@/services/s3/errors";
 import { useFileOpNotificationStore } from "@/stores/fileOpNotificationStore";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import type { ConnectionProfile } from "@/types/connection";
@@ -35,10 +36,6 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
   isInitialized: false,
   enqueueDownloads({ profile, bucketName, selections }) {
     const createdJobs = selections.map((selection) => {
-      const fileName = selection.isFolder
-        ? selection.name
-        : selection.key.split("/").pop() || selection.name;
-
       return {
         id: crypto.randomUUID(),
         profile: {
@@ -376,7 +373,7 @@ async function chooseDownloadPath(defaultName: string, isFolder: boolean): Promi
       defaultPath: defaultName,
     });
     return selected;
-  } catch (error) {
+  } catch {
     const homeDir = await getHomeDir();
     return `${homeDir}/Downloads/${defaultName}`;
   }
@@ -393,20 +390,20 @@ async function getHomeDir(): Promise<string> {
 
 function getDownloadErrorMessage(error: unknown): string {
   if (typeof error === "string") {
-    return error;
+    return categorizeS3Error(new Error(error)).userMessage;
   }
 
   if (error instanceof Error) {
-    return error.message;
+    return categorizeS3Error(error).userMessage;
   }
 
   if (error && typeof error === "object") {
     const errorObj = error as Record<string, unknown>;
     if ("message" in errorObj && typeof errorObj.message === "string") {
-      return errorObj.message;
+      return categorizeS3Error(new Error(errorObj.message)).userMessage;
     }
     if ("error" in errorObj && typeof errorObj.error === "string") {
-      return errorObj.error;
+      return categorizeS3Error(new Error(errorObj.error)).userMessage;
     }
   }
 

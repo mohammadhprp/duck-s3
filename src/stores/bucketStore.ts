@@ -5,6 +5,7 @@ import {
   deleteBucket as deleteS3Bucket,
   listBuckets,
 } from "@/services/s3/client";
+import { categorizeS3Error } from "@/services/s3/errors";
 import type { S3BucketSummary, BucketOperationStatus } from "@/types/bucket";
 import type { ConnectionProfile } from "@/types/connection";
 
@@ -110,9 +111,5 @@ export const useBucketStore = create<BucketState>((set, get) => ({
 }));
 
 function getBucketErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Unable to complete the bucket operation.";
+  return categorizeS3Error(error).userMessage;
 }

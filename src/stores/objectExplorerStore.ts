@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { listObjects } from "@/services/s3/client";
+import { categorizeS3Error } from "@/services/s3/errors";
 import type { ConnectionProfile } from "@/types/connection";
 import type { ObjectExplorerStatus, S3ObjectExplorerPage } from "@/types/object";
 
@@ -98,9 +99,11 @@ function normalizePrefix(prefix: string): string {
 }
 
 function getObjectExplorerErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
+  const categorized = categorizeS3Error(error);
+
+  if (categorized.actionable && categorized.actionLabel) {
+    return `${categorized.userMessage} (${categorized.actionLabel})`;
   }
 
-  return "Unable to load objects for the current path.";
+  return categorized.userMessage;
 }

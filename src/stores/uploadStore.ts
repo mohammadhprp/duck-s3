@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { isUploadAbortError, uploadFileMultipart } from "@/services/s3/upload";
+import { categorizeS3Error } from "@/services/s3/errors";
 import { useFileOpNotificationStore } from "@/stores/fileOpNotificationStore";
 import type { ConnectionProfile } from "@/types/connection";
 import type { UploadJob, UploadSelection } from "@/types/upload";
@@ -258,9 +259,5 @@ function getUploadErrorMessage(error: unknown): string {
     return "Upload canceled.";
   }
 
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Unable to upload file.";
+  return categorizeS3Error(error).userMessage;
 }

@@ -90,12 +90,7 @@ export function FolderPickerDialog({
       >
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold">{title}</h2>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             <X className="size-4" />
           </Button>
         </div>
